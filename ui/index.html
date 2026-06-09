@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>השוואת משמרות</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #12131a;
+      --surface:  #1c1e2e;
+      --panel:    #242638;
+      --accent:   #5b8dee;
+      --accent2:  #3a6bcc;
+      --text:     #dde3f0;
+      --muted:    #8892aa;
+      --danger:   #e05656;
+      --ok:       #4caf7d;
+      --warn:     #f0ad4e;
+      --border:   #2e3148;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      direction: rtl;
+    }
+
+    body { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      width: 190px;
+      min-width: 190px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 12px 16px;
+      gap: 6px;
+    }
+
+    .sidebar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+      padding: 8px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: right;
+      transition: all 0.15s;
+      width: 100%;
+    }
+    .nav-btn:hover { background: var(--panel); color: var(--text); }
+    .nav-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent); }
+
+    .legend {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .legend-title { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 5px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .legend-dot {
+      width: 11px; height: 11px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Content area ────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      padding: 24px 28px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen { display: none; flex-direction: column; flex: 1; }
+    .screen.active { display: flex; }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* ── Form controls ───────────────────────────────────────── */
+    textarea, input[type="text"] {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      padding: 10px 13px;
+      direction: rtl;
+      text-align: right;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    textarea:focus, input[type="text"]:focus { border-color: var(--accent); }
+    textarea::placeholder, input::placeholder { color: var(--muted); }
+
+    textarea {
+      resize: none;
+      line-height: 1.7;
+      flex: 1;
+      min-height: 180px;
+    }
+
+    label.field-label {
+      font-size: 13px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      font-weight: 600;
+      padding: 10px 20px;
+      transition: filter 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover { filter: brightness(1.12); }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary  { background: var(--accent); }
+    .btn-success  { background: #2d7d46; }
+    .btn-danger   { background: var(--danger); }
+    .btn-neutral  { background: #3a3d56; }
+    .btn-run {
+      background: linear-gradient(135deg, var(--accent), #7b5ea7);
+      font-size: 16px;
+      padding: 13px;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    /* ── Main screen ─────────────────────────────────────────── */
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .file-name {
+      flex: 1;
+      font-size: 13px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-name.selected { color: var(--accent); }
+
+    .status-bar {
+      text-align: center;
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 8px;
+      margin-top: 10px;
+      display: none;
+    }
+    .status-bar.visible { display: block; }
+    .status-bar.error { background: #3a1a1a; color: var(--danger); border: 1px solid #5a2020; }
+    .status-bar.success { background: #1a2e20; color: var(--ok); border: 1px solid #1e4a28; }
+    .status-bar.info { background: var(--panel); color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── Settings ────────────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .section h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+    .field-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 9px 0;
+    }
+    .field-row label { font-size: 13px; color: var(--text); white-space: nowrap; }
+    .field-row input  { width: 90px; text-align: center; }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+    .check-row span { font-size: 13px; color: var(--text); }
+    input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* ── Aliases ─────────────────────────────────────────────── */
+    .alias-add-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+    }
+    .alias-add-row input { flex: 1; }
+    .alias-sep { color: var(--muted); font-weight: bold; flex-shrink: 0; }
+
+    #alias-list { flex: 1; overflow-y: auto; }
+
+    .alias-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+    }
+    .alias-row input { flex: 1; min-width: 80px; }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--panel); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Sidebar ═══════════════════════════════════════════════ -->
+<div class="sidebar">
+  <div class="sidebar-title">השוואת משמרות</div>
+  <button class="nav-btn active" onclick="showScreen('main',this)">השוואה</button>
+  <button class="nav-btn" onclick="showScreen('settings',this)">הגדרות</button>
+  <button class="nav-btn" onclick="showScreen('aliases',this)">כינויי שמות</button>
+
+  <div class="legend">
+    <div class="legend-title">מקרא:</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#4CAF7D"></div>הכל תקין</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#F0AD4E"></div>פער שעות</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E08840"></div>חסר בהודעה</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E05656"></div>חסר באקסל</div>
+  </div>
+</div>
+
+<!-- ═══ Content ═══════════════════════════════════════════════ -->
+<div class="content">
+
+  <!-- Main screen ──────────────────────────────────────────── -->
+  <div class="screen active" id="screen-main">
+    <h2>השוואת משמרות</h2>
+
+    <label class="field-label">הודעה מוואטסאפ:</label>
+    <textarea id="msg-input" dir="rtl" lang="he"
+              placeholder="הדבק כאן את ההודעה מוואטסאפ (Ctrl+V)..."></textarea>
+
+    <div class="file-row">
+      <button class="btn btn-neutral" style="padding:8px 14px; font-size:13px;"
+              onclick="pickExcel()">בחר קובץ אקסל</button>
+      <div class="file-name" id="excel-label">לא נבחר קובץ</div>
+    </div>
+
+    <button class="btn btn-run" onclick="runComparison()">הרץ השוואה</button>
+
+    <div class="status-bar" id="status-bar"></div>
+
+    <button class="btn btn-success" id="dl-btn"
+            style="display:none; margin-top:8px; width:100%; padding:11px;"
+            onclick="saveOutput()">שמור קובץ פלט</button>
+  </div>
+
+  <!-- Settings screen ──────────────────────────────────────── -->
+  <div class="screen" id="screen-settings">
+    <h2>הגדרות</h2>
+
+    <div class="section">
+      <h3>עמודות בקובץ האקסל</h3>
+      <div class="field-row">
+        <label>תאריך</label>
+        <input type="text" id="col-date" maxlength="3" placeholder="B">
+      </div>
+      <div class="field-row">
+        <label>שעת התחלה</label>
+        <input type="text" id="col-start" maxlength="3" placeholder="C">
+      </div>
+      <div class="field-row">
+        <label>שעת סיום</label>
+        <input type="text" id="col-end" maxlength="3" placeholder="D">
+      </div>
+      <div class="field-row">
+        <label>שם עובד</label>
+        <input type="text" id="col-name" maxlength="3" placeholder="F">
+      </div>
+      <label class="check-row">
+        <input type="checkbox" id="has-header">
+        <span>קובץ האקסל מכיל שורת כותרת</span>
+      </label>
+    </div>
+
+    <div class="section">
+      <h3>כללי השוואה</h3>
+      <div class="field-row">
+        <label>סף פער מקסימלי (דקות)</label>
+        <input type="text" id="gap-threshold" maxlength="4">
+      </div>
+      <div class="field-row">
+        <label>שעת התחלה ברירת מחדל (חסר באקסל)</label>
+        <input type="text" id="default-start" maxlength="5" placeholder="10:00">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="saveSettings()">
+      שמור הגדרות
+    </button>
+  </div>
+
+  <!-- Aliases screen ───────────────────────────────────────── -->
+  <div class="screen" id="screen-aliases">
+    <h2>כינויי שמות</h2>
+    <p class="hint">הגדר זוגות שמות שייחשבו כאותו עובד (שם בהודעה = שם באקסל)</p>
+
+    <div class="alias-add-row">
+      <button class="btn btn-primary" style="padding:8px 16px; font-size:13px;"
+              onclick="addAliasRow()">הוסף</button>
+      <input type="text" id="new-xl-name" placeholder="שם באקסל">
+      <span class="alias-sep">=</span>
+      <input type="text" id="new-msg-name" placeholder="שם בהודעה">
+    </div>
+
+    <div id="alias-list"></div>
+
+    <button class="btn btn-primary" style="width:100%; padding:12px; margin-top:10px;"
+            onclick="saveAliases()">שמור כינויים</button>
+  </div>
+
+</div><!-- /content -->
+
+<script>
+  let config = {};
+
+  /* ── API bridge ──────────────────────────────────────── */
+  function waitApi(cb) {
+    if (window.pywebview && window.pywebview.api) { cb(); }
+    else { setTimeout(() => waitApi(cb), 80); }
+  }
+
+  async function init() {
+    const raw = await window.pywebview.api.get_config();
+    config = JSON.parse(raw);
+    loadSettings();
+    loadAliases();
+  }
+
+  /* ── Navigation ──────────────────────────────────────── */
+  function showScreen(name, btn) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  /* ── Main screen ─────────────────────────────────────── */
+  async function pickExcel() {
+    const name = await window.pywebview.api.pick_excel();
+    const lbl  = document.getElementById('excel-label');
+    if (name) {
+      lbl.textContent = name;
+      lbl.classList.add('selected');
+    }
+  }
+
+  async function runComparison() {
+    const msg    = document.getElementById('msg-input').value;
+    const status = document.getElementById('status-bar');
+    const dlBtn  = document.getElementById('dl-btn');
+
+    status.className = 'status-bar visible info';
+    status.textContent = 'מעבד — נא המתן...';
+    dlBtn.style.display = 'none';
+
+    const raw    = await window.pywebview.api.run_comparison(msg);
+    const result = JSON.parse(raw);
+
+    if (result.error) {
+      status.className = 'status-bar visible error';
+      status.textContent = 'שגיאה: ' + result.error;
+    } else {
+      status.className = 'status-bar visible success';
+      status.textContent = `הושלם! נמצאו ${result.count} שורות. לחץ שמור כדי לייצא.`;
+      dlBtn.style.display = 'block';
+    }
+  }
+
+  async function saveOutput() {
+    const res = await window.pywebview.api.save_output();
+    if (res === 'saved') {
+      const status = document.getElementById('status-bar');
+      status.className = 'status-bar visible success';
+      status.textContent = 'הקובץ נשמר בהצלחה!';
+    }
+  }
+
+  /* ── Settings screen ─────────────────────────────────── */
+  function loadSettings() {
+    document.getElementById('col-date').value     = config.excel_columns.date        || 'B';
+    document.getElementById('col-start').value    = config.excel_columns.start_time  || 'C';
+    document.getElementById('col-end').value      = config.excel_columns.end_time    || 'D';
+    document.getElementById('col-name').value     = config.excel_columns.worker_name || 'F';
+    document.getElementById('has-header').checked = !!config.excel_has_header;
+    document.getElementById('gap-threshold').value= config.rules.gap_threshold_minutes;
+    document.getElementById('default-start').value= config.rules.default_start_time;
+  }
+
+  async function saveSettings() {
+    const data = {
+      excel_columns: {
+        date:        document.getElementById('col-date').value.toUpperCase().trim(),
+        start_time:  document.getElementById('col-start').value.toUpperCase().trim(),
+        end_time:    document.getElementById('col-end').value.toUpperCase().trim(),
+        worker_name: document.getElementById('col-name').value.toUpperCase().trim(),
+      },
+      excel_has_header: document.getElementById('has-header').checked,
+      rules: {
+        gap_threshold_minutes: parseInt(document.getElementById('gap-threshold').value) || 30,
+        default_start_time:    document.getElementById('default-start').value.trim() || '10:00',
+      }
+    };
+    await window.pywebview.api.save_settings_full(JSON.stringify(data));
+    config.excel_columns    = data.excel_columns;
+    config.excel_has_header = data.excel_has_header;
+    config.rules            = data.rules;
+    showToast('ההגדרות נשמרו!');
+  }
+
+  /* ── Aliases screen ──────────────────────────────────── */
+  function loadAliases() {
+    const aliases = config.aliases || {};
+    Object.entries(aliases).forEach(([msg, xl]) => addAliasRowValues(msg, xl));
+  }
+
+  function addAliasRow() {
+    const newMsg = document.getElementById('new-msg-name');
+    const newXl  = document.getElementById('new-xl-name');
+    const mn = newMsg.value.trim();
+    const xn = newXl.value.trim();
+    if (!mn || !xn) { showToast('אנא מלא את שני השדות', true); return; }
+    addAliasRowValues(mn, xn);
+    newMsg.value = '';
+    newXl.value  = '';
+  }
+
+  function addAliasRowValues(msgName, xlName) {
+    const row = document.createElement('div');
+    row.className = 'alias-row';
+    row.innerHTML = `
+      <button class="btn btn-danger" style="padding:6px 12px; font-size:12px;"
+              onclick="this.parentElement.remove()">מחק</button>
+      <input type="text" value="${escHtml(xlName)}" placeholder="שם באקסל" dir="rtl">
+      <span class="alias-sep">=</span>
+      <input type="text" value="${escHtml(msgName)}" placeholder="שם בהודעה" dir="rtl">
+    `;
+    document.getElementById('alias-list').appendChild(row);
+  }
+
+  async function saveAliases() {
+    const aliases = {};
+    document.querySelectorAll('.alias-row').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const xl  = inputs[0].value.trim();
+      const msg = inputs[1].value.trim();
+      if (msg && xl) aliases[msg] = xl;
+    });
+    await window.pywebview.api.save_aliases(JSON.stringify(aliases));
+    config.aliases = aliases;
+    showToast('הכינויים נשמרו!');
+  }
+
+  /* ── Helpers ─────────────────────────────────────────── */
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  let toastTimer;
+  function showToast(msg, isError = false) {
+    let t = document.getElementById('_toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = '_toast';
+      Object.assign(t.style, {
+        position:'fixed', bottom:'20px', left:'50%', transform:'translateX(-50%)',
+        padding:'10px 22px', borderRadius:'8px', fontSize:'14px', fontWeight:'600',
+        zIndex:'9999', transition:'opacity 0.3s', pointerEvents:'none'
+      });
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.background  = isError ? '#5a1e1e' : '#1a3a22';
+    t.style.color       = isError ? '#e05656' : '#4caf7d';
+    t.style.border      = `1px solid ${isError ? '#882020' : '#1e5a30'}`;
+    t.style.opacity     = '1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+  }
+
+  waitApi(init);
+</script>
+</body>
+</html>

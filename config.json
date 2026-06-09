@@ -1,0 +1,15 @@
+{
+  "excel_columns": {
+    "date": "B",
+    "start_time": "C",
+    "end_time": "D",
+    "worker_name": "F"
+  },
+  "excel_has_header": true,
+  "rules": {
+    "gap_threshold_minutes": 30,
+    "default_start_time": "10:00"
+  },
+  "aliases": {},
+  "ignored_names": []
+}

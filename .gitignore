@@ -1,0 +1,15 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated output Excel files
+השוואה_*.xlsx
+
+# Test/scratch files
+test_*.xlsx
+game.html
+
+# OS files
+.DS_Store
+Thumbs.db
