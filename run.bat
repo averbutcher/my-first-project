@@ -1,3 +1,3 @@
 @echo off
 cd /d "%~dp0"
-pythonw -m streamlit run app.py
+python -m streamlit run app.py
