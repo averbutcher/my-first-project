@@ -279,4 +279,4 @@ if st.session_state.output_bytes:
     st.markdown(rows_html, unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("גרסה 1.2")
+st.caption("גרסה 1.3")
