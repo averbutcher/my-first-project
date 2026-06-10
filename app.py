@@ -277,3 +277,6 @@ if st.session_state.output_bytes:
         </div>"""
 
     st.markdown(rows_html, unsafe_allow_html=True)
+
+st.markdown("---")
+st.caption("גרסה 1.1")
