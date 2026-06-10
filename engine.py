@@ -49,6 +49,24 @@ def _is_na(val) -> bool:
         return False
 
 
+def _date_matches(excel_date, day: int, month: int) -> bool:
+    """Return True if excel_date falls on the given day and month."""
+    if excel_date is None or _is_na(excel_date):
+        return False
+    try:
+        return excel_date.day == day and excel_date.month == month
+    except AttributeError:
+        pass
+    if isinstance(excel_date, str):
+        for fmt in ("%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d", "%d.%m.%Y"):
+            try:
+                dt = datetime.strptime(excel_date.strip(), fmt)
+                return dt.day == day and dt.month == month
+            except ValueError:
+                pass
+    return False
+
+
 def parse_time(val) -> time_type | None:
     if val is None or _is_na(val):
         return None
@@ -97,13 +115,21 @@ def subtract_hours(t: time_type, h: float) -> time_type:
 # ── Message parsing ────────────────────────────────────────────────────────────
 
 def parse_message(text: str) -> list[dict]:
-    entries = []
+    entries     = []
+    current_date = None  # (day, month) tuple, set when a date header is found
+
     for line in text.strip().splitlines():
         line = line.strip()
         if not line:
             continue
+
         parts = line.split(",", 2)
+
         if len(parts) < 3:
+            # Not a worker line — check for a date header (any format: DD.M / DD/M)
+            date_m = re.search(r'(\d{1,2})[./](\d{1,2})', line)
+            if date_m:
+                current_date = (int(date_m.group(1)), int(date_m.group(2)))
             continue
 
         worker_name = parts[0].strip()
@@ -128,6 +154,7 @@ def parse_message(text: str) -> list[dict]:
                 "workplace":   workplace,
                 "hours":       hours,
                 "sales":       sales,
+                "msg_date":    current_date,
             })
     return entries
 
@@ -246,6 +273,34 @@ def _filter_excel_rows(rows: list) -> list:
     return good if good else rows
 
 def compare(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
+    """
+    Entry point. Groups message entries by date, runs per-day comparison,
+    and concatenates results. Raises ValueError if no date headers are found.
+    """
+    dated = [e for e in msg_entries if e.get("msg_date") is not None]
+    if not dated:
+        raise ValueError(
+            "לא נמצאה כותרת תאריך בהודעה\n"
+            "יש להוסיף שורת תאריך לפני כל יום (לדוגמה: סופי 15.6)"
+        )
+
+    # Collect dates in order of first appearance
+    seen_dates: list = []
+    msg_by_date: dict = {}
+    for e in msg_entries:
+        d = e["msg_date"]
+        if d not in seen_dates:
+            seen_dates.append(d)
+        msg_by_date.setdefault(d, []).append(e)
+
+    results = []
+    for date in seen_dates:
+        day_xl = [r for r in excel_entries if _date_matches(r["date"], date[0], date[1])]
+        results.extend(_compare_day(msg_by_date[date], day_xl, cfg))
+    return results
+
+
+def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
     aliases       = cfg.get("aliases", {})
     threshold_min = cfg["rules"]["gap_threshold_minutes"]
     default_start = datetime.strptime(cfg["rules"]["default_start_time"], "%H:%M").time()
