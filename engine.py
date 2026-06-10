@@ -89,6 +89,11 @@ def add_hours(t: time_type, h: float) -> time_type:
     return dt.time()
 
 
+def subtract_hours(t: time_type, h: float) -> time_type:
+    dt = datetime.combine(datetime.today(), t) - timedelta(hours=h)
+    return dt.time()
+
+
 # ── Message parsing ────────────────────────────────────────────────────────────
 
 def parse_message(text: str) -> list[dict]:
@@ -171,11 +176,11 @@ def parse_excel(file_path: str, cfg: dict) -> list[dict]:
             start_t  = parse_time(row.iloc[start_idx])
             end_t    = parse_time(row.iloc[end_idx])
 
-            # Skip rows with no shift times
-            if start_t is None or end_t is None:
+            # Skip rows where both times are missing
+            if start_t is None and end_t is None:
                 continue
 
-            hours = hours_between(start_t, end_t)
+            hours = hours_between(start_t, end_t) if (start_t is not None and end_t is not None) else None
 
             entries.append({
                 "worker_name": name,
@@ -282,17 +287,46 @@ def compare(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
 
             if er and mr:
                 eh, mh = er["hours"], mr["hours"]
+                start_t = er["start_time"]
+                end_t   = er["end_time"]
+                partial_note = None
+
+                # One Excel time missing — calculate it from message hours
+                if start_t is None and end_t is not None:
+                    partial_note = "שעת התחלה חסרה באקסל"
+                    if mh is not None:
+                        start_t = subtract_hours(end_t, mh)
+                    eh = mh
+                elif end_t is None and start_t is not None:
+                    partial_note = "שעת סיום חסרה באקסל"
+                    if mh is not None:
+                        end_t = add_hours(start_t, mh)
+                    eh = mh
 
                 if mh is None:
-                    # Message line had no hours — use Excel times as-is
+                    # Message line had no hours — use whatever Excel times we have
                     output.append({
                         "date":        er["date"],
                         "worker_name": er["worker_name"],
                         "workplace":   mr["workplace"],
-                        "start_time":  er["start_time"],
-                        "end_time":    er["end_time"],
+                        "start_time":  start_t,
+                        "end_time":    end_t,
                         "sales":       mr["sales"],
-                        "notes":       "שעות חסרות בהודעה",
+                        "notes":       partial_note or "שעות חסרות בהודעה",
+                        "status":      "gap",
+                    })
+                    continue
+
+                if partial_note:
+                    # Times completed from message hours — flag for review
+                    output.append({
+                        "date":        er["date"],
+                        "worker_name": er["worker_name"],
+                        "workplace":   mr["workplace"],
+                        "start_time":  start_t,
+                        "end_time":    end_t,
+                        "sales":       mr["sales"],
+                        "notes":       partial_note,
                         "status":      "gap",
                     })
                     continue
@@ -305,8 +339,8 @@ def compare(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
                         "date":        er["date"],
                         "worker_name": er["worker_name"],
                         "workplace":   mr["workplace"],
-                        "start_time":  er["start_time"],
-                        "end_time":    er["end_time"],
+                        "start_time":  start_t,
+                        "end_time":    end_t,
                         "sales":       mr["sales"],
                         "notes":       "הכל תקין",
                         "status":      "ok",
@@ -317,8 +351,8 @@ def compare(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
                         "date":        er["date"],
                         "worker_name": er["worker_name"],
                         "workplace":   mr["workplace"],
-                        "start_time":  er["start_time"],
-                        "end_time":    add_hours(er["start_time"], mh),
+                        "start_time":  start_t,
+                        "end_time":    add_hours(start_t, mh),
                         "sales":       mr["sales"],
                         "notes":       f"פער של {int(diff_min)} דקות",
                         "status":      "gap",
