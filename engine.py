@@ -228,6 +228,23 @@ def _build_word_lookup(excel_by_key: dict, word_index: int) -> dict[str, str | N
 
 # ── Comparison ─────────────────────────────────────────────────────────────────
 
+def _filter_excel_rows(rows: list) -> list:
+    """
+    For a worker with multiple Excel rows, keep only 'good' rows
+    (both times present, shift >= 30 min) if any exist.
+    Falls back to all rows when none qualify.
+    """
+    if len(rows) <= 1:
+        return rows
+    good = [
+        r for r in rows
+        if r["start_time"] is not None
+        and r["end_time"] is not None
+        and r.get("hours") is not None
+        and r["hours"] >= 0.5
+    ]
+    return good if good else rows
+
 def compare(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
     aliases       = cfg.get("aliases", {})
     threshold_min = cfg["rules"]["gap_threshold_minutes"]
@@ -277,8 +294,54 @@ def compare(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict]:
     output   = []
 
     for key in all_keys:
-        ex_rows = excel_by_key.get(key, [])
+        ex_rows = _filter_excel_rows(excel_by_key.get(key, []))
         ms_rows = msg_by_key.get(key, [])
+
+        # ── Multi-workplace: several message rows but one Excel row ──────────
+        if len(ms_rows) > 1 and len(ex_rows) == 1:
+            er               = ex_rows[0]
+            eh               = er["hours"]
+            start_t          = er["start_time"]
+            end_t            = er["end_time"]
+            partial_note     = None
+            total_msg_hours  = sum(mr["hours"] or 0 for mr in ms_rows)
+
+            # Complete missing Excel time using total message hours
+            if start_t is None and end_t is not None:
+                partial_note = "שעת התחלה חסרה באקסל"
+                start_t = subtract_hours(end_t, total_msg_hours)
+                eh = total_msg_hours
+            elif end_t is None and start_t is not None:
+                partial_note = "שעת סיום חסרה באקסל"
+                eh = total_msg_hours
+
+            diff_min = abs((eh or total_msg_hours) - total_msg_hours) * 60
+
+            if diff_min <= threshold_min:
+                status    = "ok"
+                base_note = partial_note or "הכל תקין"
+            else:
+                status    = "gap"
+                base_note = partial_note or f"פער של {int(diff_min)} דקות"
+
+            current_start = start_t
+            for mr in ms_rows:
+                msg_hours = mr["hours"] or 0
+                row_end   = add_hours(current_start, msg_hours) if current_start is not None else None
+                output.append({
+                    "date":        er["date"],
+                    "worker_name": er["worker_name"],
+                    "workplace":   mr["workplace"],
+                    "start_time":  current_start,
+                    "end_time":    row_end,
+                    "sales":       mr["sales"],
+                    "notes":       base_note,
+                    "status":      status,
+                })
+                current_start = row_end
+            continue
+        # ────────────────────────────────────────────────────────────────────
+
         count   = max(len(ex_rows), len(ms_rows))
 
         for i in range(count):
