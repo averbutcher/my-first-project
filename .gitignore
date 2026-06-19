@@ -18,3 +18,4 @@ Thumbs.db
 tender_scanner/.env
 tender_scanner/logs/
 tender_scanner/data/
+tender_scanner/seen_tenders.json

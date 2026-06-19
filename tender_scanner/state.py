@@ -3,20 +3,18 @@
 import json
 from pathlib import Path
 
-STATE_FILE = Path(__file__).parent / "seen_tenders.json"
 
-
-def load_seen() -> set[str]:
-    if not STATE_FILE.exists():
+def load_seen(path: Path) -> set[str]:
+    if not path.exists():
         return set()
     try:
-        return set(json.loads(STATE_FILE.read_text(encoding="utf-8")))
+        return set(json.loads(path.read_text(encoding="utf-8")))
     except Exception:
         return set()
 
 
-def save_seen(seen: set[str]) -> None:
-    STATE_FILE.write_text(
+def save_seen(seen: set[str], path: Path) -> None:
+    path.write_text(
         json.dumps(sorted(seen), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )

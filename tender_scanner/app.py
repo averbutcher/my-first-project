@@ -7,6 +7,9 @@ from pathlib import Path
 
 import anthropic
 import streamlit as st
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -23,11 +26,27 @@ load_dotenv(BASE_DIR / ".env")
 
 st.set_page_config(page_title="Tender Scanner", page_icon="🔍", layout="wide", initial_sidebar_state="collapsed")
 
+# ── Shared data (all users) ────────────────────────────────────────────────────
+KNOWLEDGE_FILE = BASE_DIR / "data" / "shared" / "knowledge.json"
+(BASE_DIR / "data" / "shared").mkdir(parents=True, exist_ok=True)
 
-LAST_SCAN_FILE = BASE_DIR / "data" / "last_scan.json"
-HISTORY_FILE = BASE_DIR / "data" / "all_tenders.json"
-FAVORITES_FILE = BASE_DIR / "data" / "favorites.json"
-KNOWLEDGE_FILE = BASE_DIR / "data" / "knowledge.json"
+# ── Per-user data helpers ──────────────────────────────────────────────────────
+def user_dir(username: str) -> Path:
+    d = BASE_DIR / "data" / "users" / username
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+def history_file(username: str) -> Path:
+    return user_dir(username) / "all_tenders.json"
+
+def favorites_file(username: str) -> Path:
+    return user_dir(username) / "favorites.json"
+
+def last_scan_file(username: str) -> Path:
+    return user_dir(username) / "last_scan.json"
+
+def seen_file(username: str) -> Path:
+    return user_dir(username) / "seen_tenders.json"
 
 
 def load_settings():
@@ -38,38 +57,38 @@ def save_settings_file(s):
     SETTINGS_FILE.write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def save_last_scan(results: list):
-    LAST_SCAN_FILE.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+def save_last_scan(results: list, username: str):
+    last_scan_file(username).write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def load_last_scan() -> list:
-    if LAST_SCAN_FILE.exists():
+def load_last_scan(username: str) -> list:
+    f = last_scan_file(username)
+    if f.exists():
         try:
-            return json.loads(LAST_SCAN_FILE.read_text(encoding="utf-8"))
+            return json.loads(f.read_text(encoding="utf-8"))
         except Exception:
             pass
     return []
 
 
-def load_history() -> list:
+def load_history(username: str) -> list:
     try:
-        if HISTORY_FILE.exists():
-            return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        f = history_file(username)
+        if f.exists():
+            return json.loads(f.read_text(encoding="utf-8"))
     except Exception:
         pass
     return []
 
 
-def append_to_history(result: dict):
-    """Add a single analyzed tender to the cumulative history, deduplicating by tender_id."""
-    history = load_history()
+def append_to_history(result: dict, username: str):
+    history = load_history(username)
     existing_ids = {r["tender_id"] for r in history}
     if result["tender_id"] not in existing_ids:
-        history.insert(0, result)  # newest first
+        history.insert(0, result)
     else:
-        # Update existing entry
         history = [result if r["tender_id"] == result["tender_id"] else r for r in history]
-    HISTORY_FILE.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    history_file(username).write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_knowledge() -> list:
@@ -85,17 +104,18 @@ def save_knowledge(guidelines: list):
     KNOWLEDGE_FILE.write_text(json.dumps(guidelines, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def load_favorites() -> set:
+def load_favorites(username: str) -> set:
     try:
-        if FAVORITES_FILE.exists():
-            return set(json.loads(FAVORITES_FILE.read_text(encoding="utf-8")))
+        f = favorites_file(username)
+        if f.exists():
+            return set(json.loads(f.read_text(encoding="utf-8")))
     except Exception:
         pass
     return set()
 
 
-def save_favorites(favs: set):
-    FAVORITES_FILE.write_text(json.dumps(list(favs), ensure_ascii=False), encoding="utf-8")
+def save_favorites(favs: set, username: str):
+    favorites_file(username).write_text(json.dumps(list(favs), ensure_ascii=False), encoding="utf-8")
 
 
 def parse_relevance(analysis: str) -> str:
@@ -156,7 +176,7 @@ def chat_with_claude(result: dict, history: list, client) -> str:
     return response.content[0].text
 
 
-def star_button(tender_id: str, prefix: str):
+def star_button(tender_id: str, prefix: str, username: str):
     is_fav = tender_id in st.session_state.favorites
     label = "⭐ מועדף" if is_fav else "☆ הוסף למועדפים"
     if st.button(label, key=f"fav_{prefix}_{tender_id}", use_container_width=True):
@@ -164,7 +184,7 @@ def star_button(tender_id: str, prefix: str):
             st.session_state.favorites.discard(tender_id)
         else:
             st.session_state.favorites.add(tender_id)
-        save_favorites(st.session_state.favorites)
+        save_favorites(st.session_state.favorites, username)
         st.rerun()
 
 
@@ -189,6 +209,17 @@ def run_async_with_timeout(coro, timeout: int = 90):
         except concurrent.futures.TimeoutError:
             raise TimeoutError(f"עיבוד המכרז נתקע ועבר {timeout} שניות — מדלג")
 
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+with open(BASE_DIR / "users.yaml", encoding="utf-8") as _f:
+    _auth_config = yaml.load(_f, SafeLoader)
+
+authenticator = stauth.Authenticate(
+    _auth_config["credentials"],
+    _auth_config["cookie"]["name"],
+    _auth_config["cookie"]["key"],
+    _auth_config["cookie"]["expiry_days"],
+)
 
 # ── Global RTL styles ─────────────────────────────────────────────────────────
 st.markdown("""
@@ -240,12 +271,24 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div style="direction:rtl; text-align:right; padding-bottom:8px;">
-  <h1 style="margin:0;">🔍 Tender Scanner — Electra Target</h1>
-</div>
-""", unsafe_allow_html=True)
+# ── Login ─────────────────────────────────────────────────────────────────────
+authenticator.login()
+
+if not st.session_state.get("authentication_status"):
+    st.markdown("""
+    <div style="direction:rtl; text-align:center; margin-top:80px;">
+      <h1>🔍 Tender Scanner — Electra Target</h1>
+      <p style="color:#666;">אנא התחבר כדי להמשיך</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.session_state.get("authentication_status") is False:
+        st.error("שם משתמש או סיסמה שגויים")
+    st.stop()
+
+# ── Authenticated ──────────────────────────────────────────────────────────────
+current_user: str = st.session_state["username"]
+current_name: str = st.session_state["name"]
+is_admin: bool = _auth_config["credentials"]["usernames"].get(current_user, {}).get("role") == "admin"
 
 api_key = os.environ.get("ANTHROPIC_API_KEY", "")
 if not api_key:
@@ -254,10 +297,36 @@ if not api_key:
 
 client = anthropic.Anthropic(api_key=api_key)
 
-if "favorites" not in st.session_state:
-    st.session_state.favorites = load_favorites()
+# ── Header ────────────────────────────────────────────────────────────────────
+col_title, col_user = st.columns([5, 1])
+with col_title:
+    st.markdown("""
+    <div style="direction:rtl; text-align:right; padding-bottom:8px;">
+      <h1 style="margin:0;">🔍 Tender Scanner — Electra Target</h1>
+    </div>
+    """, unsafe_allow_html=True)
+with col_user:
+    st.markdown(f"<div style='text-align:right; padding-top:16px; color:#666;'>שלום, {current_name}</div>", unsafe_allow_html=True)
+    authenticator.logout("התנתק")
 
-tab_scanner, tab_manual, tab_history, tab_favorites, tab_learning, tab_settings = st.tabs(["📡 סריקה", "🔗 ניתוח לפי URL", "📋 כל המכרזים שנותחו", "⭐ מועדפים", "🧠 למידה", "⚙️ הגדרות"])
+if "favorites" not in st.session_state:
+    st.session_state.favorites = load_favorites(current_user)
+
+_tab_labels = ["📡 סריקה", "🔗 ניתוח לפי URL", "📋 כל המכרזים שנותחו", "⭐ מועדפים"]
+if is_admin:
+    _tab_labels.append("🧠 למידה")
+_tab_labels.append("⚙️ הגדרות")
+
+_tabs = st.tabs(_tab_labels)
+tab_scanner  = _tabs[0]
+tab_manual   = _tabs[1]
+tab_history  = _tabs[2]
+tab_favorites = _tabs[3]
+if is_admin:
+    tab_learning = _tabs[4]
+    tab_settings = _tabs[5]
+else:
+    tab_settings = _tabs[4]
 
 
 # ── SCANNER TAB ───────────────────────────────────────────────────────────────
@@ -279,7 +348,7 @@ with tab_scanner:
         skip_seen = st.checkbox("דלג על מכרזים שנסרקו כבר", value=True)
 
     if "results" not in st.session_state:
-        st.session_state.results = load_last_scan()
+        st.session_state.results = load_last_scan(current_user)
     if "relevance_filter" not in st.session_state:
         st.session_state.relevance_filter = "all"
     if "chats" not in st.session_state:
@@ -290,7 +359,7 @@ with tab_scanner:
         st.session_state.results = []
         st.session_state.relevance_filter = "all"
         settings = load_settings()
-        seen = load_seen() if skip_seen else set()
+        seen = load_seen(seen_file(current_user)) if skip_seen else set()
 
         with st.status("סורק את האתר...", expanded=True) as status:
             st.write("📡 מתחבר ל-mr.gov.il...")
@@ -331,14 +400,14 @@ with tab_scanner:
                                     "update_date": meta.get("update_date", ""),
                                     "has_pdf": False, "analysis": f"שגיאה בעיבוד: {e}"}
                     st.session_state.results.append(analysis)
-                    save_last_scan(st.session_state.results)
-                    append_to_history(analysis)
+                    save_last_scan(st.session_state.results, current_user)
+                    append_to_history(analysis, current_user)
                     seen.add(meta["tender_id"])
                     if skip_seen:
-                        save_seen(seen)
+                        save_seen(seen, seen_file(current_user))
                     progress.progress((i + 1) / len(new_tenders))
 
-                save_last_scan(st.session_state.results)
+                save_last_scan(st.session_state.results, current_user)
                 status.update(
                     label=f"✅ הסריקה הושלמה — {len(st.session_state.results)} מכרזים נותחו",
                     state="complete"
@@ -406,7 +475,7 @@ with tab_scanner:
                     if r.get("deadline"):
                         st.markdown(f"**מועד הגשה:** {r['deadline']}")
                 with mc2:
-                    star_button(r["tender_id"], "scan")
+                    star_button(r["tender_id"], "scan", current_user)
                     st.markdown(f"**{pdf_icon}**")
                     st.markdown(f"[🔗 לדף המכרז]({r['url']})")
                 st.markdown("---")
@@ -511,7 +580,7 @@ with tab_manual:
                     result = analyze_tender(tender, settings, client, knowledge=load_knowledge())
 
                 st.session_state.manual_result = result
-                append_to_history(result)
+                append_to_history(result, current_user)
                 status.update(label="✅ הניתוח הושלם ונשמר בהיסטוריה", state="complete")
             except Exception as e:
                 status.update(label=f"שגיאה: {e}", state="error")
@@ -530,7 +599,7 @@ with tab_manual:
             if r.get("deadline"):
                 st.markdown(f"**מועד הגשה:** {r['deadline']}")
         with mc2:
-            star_button(r["tender_id"], "manual")
+            star_button(r["tender_id"], "manual", current_user)
             pdf_icon = "✅ PDF" if r.get("has_pdf") else "⚠️ ללא PDF"
             st.markdown(f"**{pdf_icon}**")
             st.markdown(f"[🔗 לדף המכרז]({r['url']})")
@@ -575,7 +644,7 @@ with tab_manual:
 
 # ── HISTORY TAB ───────────────────────────────────────────────────────────────
 with tab_history:
-    history = load_history()
+    history = load_history(current_user)
     if not history:
         st.info("עדיין לא נותחו מכרזים. הפעל סריקה כדי להתחיל.")
     else:
@@ -626,7 +695,7 @@ with tab_history:
                     if r.get("deadline"):
                         st.markdown(f"**מועד הגשה:** {r['deadline']}")
                 with mc2:
-                    star_button(r["tender_id"], "hist")
+                    star_button(r["tender_id"], "hist", current_user)
                     st.markdown(f"**{pdf_icon}**")
                     st.markdown(f"[🔗 לדף המכרז]({r['url']})")
                 st.markdown("---")
@@ -669,7 +738,7 @@ with tab_favorites:
     if not favs:
         st.info("עדיין לא הוספת מועדפים. לחץ על ☆ בכל מכרז כדי להוסיפו לכאן.")
     else:
-        history_all = load_history()
+        history_all = load_history(current_user)
         fav_tenders = [r for r in history_all if r["tender_id"] in favs]
         if not fav_tenders:
             st.info("המכרזים המועדפים לא נמצאו בהיסטוריה.")
@@ -694,7 +763,7 @@ with tab_favorites:
                         if r.get("deadline"):
                             st.markdown(f"**מועד הגשה:** {r['deadline']}")
                     with mc2:
-                        star_button(r["tender_id"], "fav")
+                        star_button(r["tender_id"], "fav", current_user)
                         st.markdown(f"**{pdf_icon}**")
                         st.markdown(f"[🔗 לדף המכרז]({r['url']})")
                     st.markdown("---")
@@ -733,8 +802,10 @@ with tab_favorites:
                                 st.rerun()
 
 
-# ── LEARNING TAB ──────────────────────────────────────────────────────────────
-with tab_learning:
+# ── LEARNING TAB (admin only) ─────────────────────────────────────────────────
+_show_learning = is_admin
+if _show_learning:
+ with tab_learning:
     st.markdown("<div style='direction:rtl;'>", unsafe_allow_html=True)
     st.markdown("### 🧠 מצב למידה")
     st.markdown("<div style='direction:rtl; color:#666; margin-bottom:16px;'>נתח מכרז, תן משוב, נתח מחדש — עד שהניתוח מדויק. בסיום שמור את התובנות למנוע.</div>", unsafe_allow_html=True)

@@ -1,0 +1,16 @@
+credentials:
+  usernames:
+    daniel:
+      email: daniel.averbuch123@gmail.com
+      name: Daniel
+      password: "$2b$12$eUkCB9UxwE8flCclJiC0f.uNQJZpVKEW1PlN2QdpSShqQYbAbS0Iq"
+      role: admin
+    user1:
+      email: user@example.com
+      name: User
+      password: "$2b$12$cPk0AH4TAWh47mtt6Eh3p.iNyWXwrgMJH1lKJT/WAGpBzctJ8hwu2"
+      role: user
+cookie:
+  expiry_days: 30
+  key: tender_scanner_secret_key_change_this
+  name: tender_scanner_auth
