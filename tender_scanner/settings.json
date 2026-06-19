@@ -1,0 +1,44 @@
+{
+  "company": {
+    "name": "Electra Target",
+    "description": "BPO, manpower-heavy project management, logistics, healthcare, transportation, administration"
+  },
+  "industries": [
+    "BPO",
+    "manpower",
+    "logistics",
+    "healthcare",
+    "transportation",
+    "administration",
+    "facility management",
+    "security",
+    "cleaning",
+    "call center"
+  ],
+  "budget": {
+    "min_annual_ils": 500000,
+    "max_annual_ils": 500000000
+  },
+  "horizon_years": 5,
+  "labor_costs": {
+    "simple_monthly_ils": 9000,
+    "simple_hourly_ils": 47,
+    "social_expense_multiplier": 1.3,
+    "skilled_sectors": {
+      "healthcare": 14000,
+      "logistics_supervisor": 13000,
+      "admin_senior": 12000
+    }
+  },
+  "email": {
+    "recipient": "daniel.averbuch123@gmail.com",
+    "sender": "daniel.averbuch123@gmail.com",
+    "subject_prefix": "[Tender Scanner]"
+  },
+  "scraper": {
+    "base_url": "https://mr.gov.il/ilgstorefront/he/search/?q=%3AupdateDate%3Aarchive%3Afalse&s=TENDER",
+    "max_tenders_per_run": 200,
+    "days_back": 7,
+    "page_load_timeout_ms": 30000
+  }
+}

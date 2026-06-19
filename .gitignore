@@ -13,3 +13,8 @@ game.html
 # OS files
 .DS_Store
 Thumbs.db
+
+# Tender scanner secrets and runtime data
+tender_scanner/.env
+tender_scanner/logs/
+tender_scanner/data/
