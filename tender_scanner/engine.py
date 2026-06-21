@@ -304,6 +304,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
     aliases       = cfg.get("aliases", {})
     threshold_min = cfg["rules"]["gap_threshold_minutes"]
     default_start = datetime.strptime(cfg["rules"]["default_start_time"], "%H:%M").time()
+    managers      = [m.strip() for m in cfg.get("managers", []) if m.strip()]
 
     # Infer "the date" for this run from Excel
     excel_date = next(
@@ -477,6 +478,9 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     })
 
             elif er:
+                # Managers are optional — if they're not in the message, skip them silently
+                if _is_ignored(er["worker_name"], managers) or _is_ignored(key, managers):
+                    continue
                 # Rule 3 — missing from message
                 output.append({
                     "date":        er["date"],

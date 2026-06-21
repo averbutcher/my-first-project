@@ -407,6 +407,7 @@ _DEFAULT_SHIFTS_CFG = {
     "excel_has_header": True,
     "rules": {"gap_threshold_minutes": 30, "default_start_time": "10:00"},
     "aliases": {},
+    "managers": [],
     "ignored_names": [],
 }
 
