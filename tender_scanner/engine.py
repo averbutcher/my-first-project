@@ -154,7 +154,8 @@ def parse_message(text: str) -> list[dict]:
 
         if len(parts) < 3:
             # Not a worker line — check for a date header (any format: DD.M / DD/M)
-            date_m = re.search(r'(\d{1,2})[./](\d{1,2})', line)
+            # Negative lookahead (?!\d*[שמ]) prevents matching decimal hours like 8.5ש
+            date_m = re.search(r'(\d{1,2})[./](\d{1,2})(?!\d*[שמ])', line)
             if date_m:
                 current_date = (int(date_m.group(1)), int(date_m.group(2)))
             continue
