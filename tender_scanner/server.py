@@ -28,12 +28,17 @@ BASE_DIR = Path(__file__).parent
 load_dotenv(BASE_DIR / ".env")
 
 _SIGNER = URLSafeTimedSerializer(os.environ.get("SESSION_SECRET", "et-tools-2024-change-me"))
-SETTINGS_FILE = BASE_DIR / "settings.json"
+SETTINGS_FILE = BASE_DIR / "data" / "settings.json"
 KNOWLEDGE_FILE = BASE_DIR / "data" / "shared" / "knowledge.json"
 _excel_cache: dict[str, bytes] = {}
 
 app = FastAPI(title="Electra Target Tools")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+@app.on_event("startup")
+async def _init_dirs():
+    for d in ["data/shared", "data/users"]:
+        (BASE_DIR / d).mkdir(parents=True, exist_ok=True)
 
 
 # ── Session helpers ───────────────────────────────────────────────────────────
