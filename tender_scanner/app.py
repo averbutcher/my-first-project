@@ -292,13 +292,16 @@ st.markdown("""
   [data-testid="stForm"] span,
   [data-testid="stForm"] div { text-align: right !important; direction: rtl !important; }
 
-  /* Move sidebar to the right */
-  .appview-container {
-    flex-direction: row-reverse !important;
+  /* Move sidebar to the right using order (works with RTL) */
+  section[data-testid="stSidebar"] {
+    order: 2 !important;
+  }
+  .main {
+    order: 1 !important;
   }
   section[data-testid="stSidebar"] > div:first-child {
     border-right: none !important;
-    border-left: 1px solid rgba(49,51,63,0.2);
+    border-left: 1px solid rgba(49,51,63,0.2) !important;
   }
 </style>
 """, unsafe_allow_html=True)
