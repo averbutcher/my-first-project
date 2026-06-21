@@ -402,22 +402,39 @@ async def learn_save(body: dict, _: str = Depends(auth)):
 
 # ── Shift comparison ──────────────────────────────────────────────────────────
 
+_DEFAULT_SHIFTS_CFG = {
+    "excel_columns": {"date": "B", "start_time": "C", "end_time": "D", "worker_name": "F"},
+    "excel_has_header": True,
+    "rules": {"gap_threshold_minutes": 30, "default_start_time": "10:00"},
+    "aliases": {},
+    "ignored_names": [],
+}
+
+def _shifts_cfg_path(u: str) -> Path:
+    return _udir(u) / "shifts_config.json"
+
+def _load_shifts_cfg(u: str) -> dict:
+    return _rj(_shifts_cfg_path(u), dict(_DEFAULT_SHIFTS_CFG))
+
+def _save_shifts_cfg(u: str, cfg: dict):
+    _wj(_shifts_cfg_path(u), cfg)
+
 @app.get("/api/shifts/config")
-async def shifts_config(_: str = Depends(auth)):
-    return load_config()
+async def shifts_config(u: str = Depends(auth)):
+    return _load_shifts_cfg(u)
 
 @app.post("/api/shifts/config")
-async def save_shifts_config(body: dict, _: str = Depends(auth)):
-    save_config(body)
+async def save_shifts_config(body: dict, u: str = Depends(auth)):
+    _save_shifts_cfg(u, body)
     return {"ok": True}
 
 @app.post("/api/shifts/compare")
 async def shifts_compare(
-    _: str = Depends(auth),
+    u: str = Depends(auth),
     message: str = Form(...),
     excel: UploadFile = File(...),
 ):
-    cfg = load_config()
+    cfg = _load_shifts_cfg(u)
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
         tmp.write(await excel.read())
         tmp_path = Path(tmp.name)
