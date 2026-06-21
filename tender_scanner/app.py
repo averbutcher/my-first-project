@@ -292,16 +292,29 @@ st.markdown("""
   [data-testid="stForm"] span,
   [data-testid="stForm"] div { text-align: right !important; direction: rtl !important; }
 
-  /* Move sidebar to the right using order (works with RTL) */
+  /* Move sidebar to the right - fixed position approach */
   section[data-testid="stSidebar"] {
-    order: 2 !important;
-  }
-  .main {
-    order: 1 !important;
-  }
-  section[data-testid="stSidebar"] > div:first-child {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: unset !important;
+    height: 100vh !important;
+    overflow-y: auto !important;
+    z-index: 999 !important;
     border-right: none !important;
-    border-left: 1px solid rgba(49,51,63,0.2) !important;
+    border-left: 1px solid rgba(49,51,63,0.15) !important;
+  }
+
+  /* Push main content left to make room for right sidebar */
+  .appview-container > .main {
+    margin-right: 21rem !important;
+    margin-left: 0 !important;
+  }
+
+  /* Sidebar toggle button: place it to the left of the sidebar */
+  [data-testid="collapsedControl"] {
+    right: 21rem !important;
+    left: unset !important;
   }
 </style>
 """, unsafe_allow_html=True)
