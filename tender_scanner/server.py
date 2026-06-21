@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).parent))
 
 from analyzer import analyze_tender, distill_knowledge
-from engine import load_config, save_config, parse_message, parse_excel, compare, export_to_excel
+from engine import load_config, save_config, parse_message, parse_excel, compare, export_to_excel, find_suspicious_lines
 from scraper import Tender, _extract_id_from_url, fetch_tender_detail, fetch_tender_list
 from state import filter_new, load_seen, save_seen
 
@@ -433,6 +433,10 @@ async def shifts_config(u: str = Depends(auth)):
 async def save_shifts_config(body: dict, u: str = Depends(auth)):
     _save_shifts_cfg(u, body)
     return {"ok": True}
+
+@app.post("/api/shifts/validate")
+async def shifts_validate(_: str = Depends(auth), message: str = Form(...)):
+    return {"suspicious": find_suspicious_lines(message)}
 
 @app.post("/api/shifts/compare")
 async def shifts_compare(

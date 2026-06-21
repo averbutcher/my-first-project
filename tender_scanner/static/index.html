@@ -999,6 +999,36 @@ async function runCompare() {
   if (!_shiftsFile) { toast('נא להעלות קובץ אקסל', 'error'); return; }
 
   const el = document.getElementById('shifts-result');
+  el.innerHTML = `<div class="info">⏳ בודק הודעה...</div>`;
+
+  // Step 1: validate for missing commas
+  const vfd = new FormData();
+  vfd.append('message', msg);
+  try {
+    const v = await api('POST', '/api/shifts/validate', vfd, true);
+    if (v && v.suspicious && v.suspicious.length > 0) {
+      el.innerHTML = `
+        <div style="background:#fef9c3;border:2px solid #fbbf24;border-radius:var(--radius);padding:1rem 1.2rem;margin-bottom:1rem">
+          <div style="font-size:.95rem;font-weight:700;color:#92400e;margin-bottom:.5rem">⚠️ שורות חשודות — ייתכן שחסרה פסיק</div>
+          <div style="font-size:.82rem;color:#78350f;margin-bottom:.75rem">השורות הבאות לא הוכרו כשורות עובד תקינות (צפוי: שם, מקום, שעות). ייתכן שחסר פסיק:</div>
+          <div style="background:#fff;border-radius:6px;padding:.6rem .85rem;margin-bottom:.85rem;font-family:monospace;direction:rtl">
+            ${v.suspicious.map(l => `<div style="padding:.2rem 0;border-bottom:1px solid #fef3c7;font-size:.85rem">${esc(l)}</div>`).join('')}
+          </div>
+          <div style="display:flex;gap:.75rem">
+            <button class="btn btn-primary" onclick="doCompare()">המשך בכל זאת</button>
+            <button class="btn btn-outline" onclick="document.getElementById('shifts-result').innerHTML=''">חזור לתיקון</button>
+          </div>
+        </div>`;
+      return;
+    }
+  } catch { /* if validate fails, proceed anyway */ }
+
+  await doCompare();
+}
+
+async function doCompare() {
+  const msg = document.getElementById('sh-msg').value.trim();
+  const el = document.getElementById('shifts-result');
   el.innerHTML = `<div class="info">⏳ משווה נתונים...</div>`;
 
   const fd = new FormData();

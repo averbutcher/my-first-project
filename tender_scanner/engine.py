@@ -112,6 +112,33 @@ def subtract_hours(t: time_type, h: float) -> time_type:
     return dt.time()
 
 
+# ── Pre-validation ────────────────────────────────────────────────────────────
+
+def find_suspicious_lines(text: str) -> list[str]:
+    """
+    Return lines that look like worker entries but are missing commas.
+    A valid worker line needs 2 commas (name, workplace, hours).
+    We flag lines with <2 commas that contain Hebrew text AND either
+    at least 1 comma or an hours/sales indicator (ש / מ + digit).
+    Pure date headers are excluded.
+    """
+    suspicious = []
+    for line in text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # Skip pure date headers like "סופי 15.6" or "ראשון 22/6"
+        if re.search(r'\d{1,2}[./]\d{1,2}', line) and line.count(',') == 0:
+            continue
+        if line.count(',') >= 2:
+            continue  # Valid format, not suspicious
+        has_hebrew = bool(re.search(r'[א-ת]', line))
+        has_hours  = bool(re.search(r'\d+ש|ש\d+|\d+מ|מ\d+', line))
+        if has_hebrew and (line.count(',') >= 1 or has_hours):
+            suspicious.append(line)
+    return suspicious
+
+
 # ── Message parsing ────────────────────────────────────────────────────────────
 
 def parse_message(text: str) -> list[dict]:
