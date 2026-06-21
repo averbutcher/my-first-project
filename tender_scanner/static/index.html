@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electra Target Tools</title>
+<style>
+:root {
+  --sidebar: 270px;
+  --primary: #1a3a5c;
+  --primary-h: #15304e;
+  --accent: #2563eb;
+  --bg: #ffffff;
+  --bg2: #f8f9fb;
+  --border: #e4e7ec;
+  --text: #111827;
+  --muted: #6b7280;
+  --green: #16a34a; --green-bg: #dcfce7;
+  --yellow: #b45309; --yellow-bg: #fef9c3;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);direction:rtl}
+.hidden{display:none!important}
+
+/* ── Login ─────────────────────────────────────────── */
+#login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg2)}
+.login-card{background:var(--bg);padding:2.5rem 2.8rem;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.1);width:360px;text-align:right}
+.login-logo{font-size:2.2rem;text-align:center;margin-bottom:.5rem}
+.login-title{font-size:1.4rem;font-weight:700;text-align:center;color:var(--primary);margin-bottom:.25rem}
+.login-sub{font-size:.85rem;color:var(--muted);text-align:center;margin-bottom:1.8rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:.35rem}
+.field input{width:100%;padding:.6rem .85rem;border:1px solid var(--border);border-radius:var(--radius);font-size:.95rem;direction:rtl;background:var(--bg2);transition:border .2s}
+.field input:focus{outline:none;border-color:var(--accent);background:var(--bg)}
+.btn-login{width:100%;padding:.7rem;background:var(--primary);color:#fff;border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;margin-top:.5rem;transition:background .2s}
+.btn-login:hover{background:var(--primary-h)}
+.login-err{color:var(--red);font-size:.83rem;margin-top:.75rem;text-align:center}
+.login-ver{font-size:.75rem;color:var(--border);text-align:center;margin-top:1.5rem}
+
+/* ── App layout ────────────────────────────────────── */
+#app{display:flex;min-height:100vh}
+#sidebar{
+  position:fixed;top:0;right:0;width:var(--sidebar);height:100vh;
+  background:var(--bg2);border-left:1px solid var(--border);
+  padding:1.2rem .9rem;display:flex;flex-direction:column;overflow-y:auto;z-index:200
+}
+#main{margin-right:var(--sidebar);padding:1.5rem 2rem;flex:1;overflow-y:auto}
+
+/* ── Sidebar components ─────────────────────────────── */
+.sb-brand{padding:.5rem .3rem 1rem;border-bottom:1px solid var(--border);margin-bottom:.9rem}
+.sb-eyebrow{font-size:.65rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:.15rem}
+.sb-title{font-size:1.2rem;font-weight:700;color:var(--primary)}
+.sb-section{font-size:.7rem;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin:.9rem 0 .4rem .3rem}
+.app-btn{
+  width:100%;padding:.55rem .8rem;border:1px solid var(--border);background:var(--bg);
+  border-radius:var(--radius);font-size:.88rem;cursor:pointer;text-align:right;
+  margin-bottom:.35rem;color:var(--text);transition:all .15s;display:flex;align-items:center;gap:.5rem
+}
+.app-btn:hover{background:#e8eef8;border-color:var(--accent)}
+.app-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.sb-settings{margin-top:.5rem}
+.sb-label{font-size:.78rem;color:var(--muted);margin-bottom:.25rem;display:block}
+.sb-input{width:100%;padding:.45rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;direction:rtl;background:var(--bg);margin-bottom:.5rem}
+.sb-input:focus{outline:none;border-color:var(--accent)}
+.sb-save{width:100%;padding:.45rem;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:.82rem;cursor:pointer;margin-top:.2rem}
+.sb-save:hover{background:var(--primary-h)}
+.sb-bottom{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border)}
+.sb-user{font-size:.82rem;color:var(--muted);margin-bottom:.5rem}
+.sb-user b{color:var(--text)}
+.btn-logout{width:100%;padding:.4rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:.82rem;cursor:pointer;color:var(--text)}
+.btn-logout:hover{background:#fee2e2;border-color:var(--red);color:var(--red)}
+.sb-ver{font-size:.68rem;color:var(--border);margin-top:.5rem;text-align:center}
+details.sb-exp summary{cursor:pointer;font-size:.78rem;color:var(--muted);margin-bottom:.4rem;list-style:none}
+details.sb-exp summary::-webkit-details-marker{display:none}
+details.sb-exp[open] summary::before{content:"▼ "}
+details.sb-exp summary::before{content:"▶ "}
+.alias-row{display:flex;gap:.3rem;margin-bottom:.3rem;align-items:center}
+.alias-row input{flex:1;padding:.35rem .5rem;border:1px solid var(--border);border-radius:5px;font-size:.78rem;direction:rtl}
+.alias-del{padding:.3rem .5rem;background:#fee2e2;border:none;border-radius:5px;cursor:pointer;font-size:.75rem;color:var(--red)}
+
+/* ── Page header ──────────────────────────────────── */
+.page-eyebrow{font-size:.72rem;color:var(--muted);margin-bottom:.15rem}
+.page-title{font-size:1.5rem;font-weight:700;color:var(--primary);margin-bottom:1.2rem}
+
+/* ── Tabs ──────────────────────────────────────────── */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.4rem;flex-wrap:wrap}
+.tab{padding:.55rem 1rem;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;font-size:.88rem;white-space:nowrap;transition:color .15s}
+.tab:hover{color:var(--primary)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+
+/* ── Buttons ───────────────────────────────────────── */
+.btn{padding:.5rem 1.2rem;border:none;border-radius:var(--radius);cursor:pointer;font-size:.88rem;font-weight:500;transition:opacity .15s;display:inline-flex;align-items:center;gap:.4rem}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-outline{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover{background:var(--bg2)}
+.btn-sm{padding:.3rem .7rem;font-size:.8rem}
+.btn-danger{background:#fee2e2;color:var(--red);border:1px solid #fca5a5}
+
+/* ── Cards / Expanders ─────────────────────────────── */
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.75rem;box-shadow:var(--shadow);overflow:hidden}
+.card-header{padding:.75rem 1rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:.5rem;user-select:none}
+.card-header:hover{background:var(--bg2)}
+.card-title{font-size:.9rem;font-weight:600;flex:1}
+.card-body{padding:.85rem 1rem;border-top:1px solid var(--border);display:none}
+.card.open .card-body{display:block}
+.card.open .card-chevron{transform:rotate(180deg)}
+.card-chevron{transition:transform .2s;color:var(--muted);font-size:.8rem}
+.card-meta{font-size:.8rem;color:var(--muted);margin-bottom:.5rem}
+.card-meta span{margin-left:.9rem}
+.analysis-text{font-size:.88rem;line-height:1.75;white-space:pre-wrap;direction:rtl}
+
+/* ── Badges ────────────────────────────────────────── */
+.badge{font-size:.75rem;padding:.2rem .55rem;border-radius:20px;font-weight:600;white-space:nowrap}
+.badge-high{background:var(--green-bg);color:var(--green)}
+.badge-medium{background:var(--yellow-bg);color:var(--yellow)}
+.badge-low{background:var(--red-bg);color:var(--red)}
+.badge-no_pdf,.badge-unknown{background:#f3f4f6;color:var(--muted)}
+
+/* ── Progress ──────────────────────────────────────── */
+.progress-wrap{margin:1rem 0}
+.progress-bar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:.4rem 0}
+.progress-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.progress-log{font-size:.8rem;color:var(--muted);max-height:120px;overflow-y:auto;background:var(--bg2);border-radius:6px;padding:.5rem .7rem;margin-top:.4rem}
+.progress-log p{margin:.1rem 0}
+.status-counts{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin:1rem 0}
+.status-card{border-radius:var(--radius);padding:.75rem;text-align:center}
+.status-card .count{font-size:1.6rem;font-weight:700}
+.status-card .label{font-size:.75rem;color:var(--muted);margin-top:.1rem}
+
+/* ── Filters ───────────────────────────────────────── */
+.filter-bar{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.filter-btn{padding:.35rem .8rem;border-radius:20px;border:1px solid var(--border);background:var(--bg);font-size:.8rem;cursor:pointer;color:var(--muted)}
+.filter-btn:hover,.filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* ── Chat ──────────────────────────────────────────── */
+.chat-area{margin-top:1rem;border-top:1px solid var(--border);padding-top:.8rem}
+.chat-msg{padding:.6rem .85rem;border-radius:8px;margin:.35rem 0;font-size:.85rem;line-height:1.6;direction:rtl}
+.chat-msg.user{background:#e8f0fe}
+.chat-msg.assistant{background:#f0f4f0}
+.chat-form{display:flex;gap:.5rem;margin-top:.6rem}
+.chat-form input{flex:1;padding:.5rem .75rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;direction:rtl}
+.chat-form input:focus{outline:none;border-color:var(--accent)}
+.chat-form button{padding:.5rem 1rem;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85rem}
+
+/* ── Shift comparison ──────────────────────────────── */
+.shifts-grid{display:grid;grid-template-columns:3fr 2fr;gap:1.2rem;margin-bottom:1rem}
+.shifts-grid textarea{width:100%;height:280px;padding:.65rem .85rem;border:1px solid var(--border);border-radius:var(--radius);font-size:.88rem;direction:rtl;resize:vertical;font-family:inherit}
+.shifts-grid textarea:focus{outline:none;border-color:var(--accent)}
+.upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:2rem 1rem;text-align:center;cursor:pointer;transition:border .2s}
+.upload-area:hover,.upload-area.drag{border-color:var(--accent);background:#eff6ff}
+.upload-area input{display:none}
+.upload-label{font-size:.85rem;color:var(--muted);display:block;margin-top:.5rem}
+.result-row{padding:.5rem .9rem;border-radius:6px;margin:.3rem 0;font-size:.83rem;display:flex;gap:.75rem;align-items:baseline;direction:rtl}
+.result-row .r-status{font-weight:600;white-space:nowrap;min-width:90px}
+.result-row .r-worker{font-weight:600}
+.result-row .r-notes{color:var(--muted);font-style:italic}
+
+/* ── Settings form ─────────────────────────────────── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem}
+.settings-field label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.3rem}
+.settings-field input,.settings-field textarea{width:100%;padding:.5rem .7rem;border:1px solid var(--border);border-radius:6px;font-size:.88rem;direction:rtl;background:var(--bg2)}
+.settings-field textarea{height:140px;resize:vertical}
+.settings-field input:focus,.settings-field textarea:focus{outline:none;border-color:var(--accent);background:var(--bg)}
+
+/* ── Misc ──────────────────────────────────────────── */
+.info{background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:.75rem 1rem;font-size:.85rem;color:#1e40af;margin:.75rem 0}
+.error{background:#fee2e2;border:1px solid #fca5a5;border-radius:var(--radius);padding:.75rem 1rem;font-size:.85rem;color:#991b1b;margin:.75rem 0}
+.success{background:var(--green-bg);border:1px solid #86efac;border-radius:var(--radius);padding:.75rem 1rem;font-size:.85rem;color:var(--green);margin:.75rem 0}
+.fav-btn{background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--muted);padding:.25rem .5rem;border-radius:4px}
+.fav-btn:hover{background:var(--bg2)}
+.divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+</style>
+</head>
+<body>
+
+<!-- ── Login ─────────────────────────────────────── -->
+<div id="login-page" class="hidden">
+  <div class="login-card">
+    <div class="login-logo">🛠️</div>
+    <div class="login-title">Electra Target Tools</div>
+    <div class="login-sub">אנא התחבר כדי להמשיך</div>
+    <form id="login-form">
+      <div class="field"><label>שם משתמש</label><input id="l-user" autocomplete="username" dir="ltr"></div>
+      <div class="field"><label>סיסמה</label><input id="l-pass" type="password" autocomplete="current-password" dir="ltr"></div>
+      <button class="btn-login" type="submit">כניסה</button>
+      <div id="login-err" class="login-err hidden"></div>
+    </form>
+    <div class="login-ver">v1.2</div>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────────── -->
+<div id="app" class="hidden">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-eyebrow">Electra Target</div>
+      <div class="sb-title">כלים</div>
+    </div>
+    <div class="sb-section">אפליקציות</div>
+    <div id="sb-apps"></div>
+    <hr class="divider">
+    <div id="sb-settings"></div>
+    <div class="sb-bottom">
+      <div class="sb-user">שלום, <b id="sb-name">—</b></div>
+      <button class="btn-logout" onclick="doLogout()">התנתק</button>
+      <div class="sb-ver">v1.2</div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div id="main">
+
+    <!-- Tender scanner -->
+    <div id="tender-app" class="hidden">
+      <div class="page-eyebrow">Electra Target Tools</div>
+      <div class="page-title">🔍 סריקת מכרזים</div>
+      <div class="tabs" id="ts-tabs"></div>
+      <div id="ts-content"></div>
+    </div>
+
+    <!-- Shift comparison -->
+    <div id="shifts-app" class="hidden">
+      <div class="page-eyebrow">Electra Target Tools</div>
+      <div class="page-title">📊 השוואת משמרות</div>
+      <div id="shifts-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+const S = {
+  user: null,
+  activeApp: 'tender_scanner',
+  activeTab: 'scan',
+  settings: null,
+  scanResults: [],
+  scanRunning: false,
+  filter: 'all',
+  history: [],
+  histFilter: 'all',
+  favorites: [],
+  lastScan: [],
+  manualResult: null,
+  manualChat: [],
+  chats: {},
+  learnTender: null,
+  learnResult: null,
+  learnFeedback: [],
+  learnIter: 0,
+  knowledge: [],
+  shiftsResult: null,
+  shiftsToken: null,
+  shiftsCfg: null,
+  aliases: [],
+};
+
+// ══════════════════════════════════════════
+// API
+// ══════════════════════════════════════════
+async function api(method, path, body, isForm) {
+  const opts = { method, credentials: 'same-origin' };
+  if (body) {
+    if (isForm) { opts.body = body; }
+    else { opts.headers = {'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
+  }
+  const r = await fetch(path, opts);
+  if (r.status === 401) { showLogin(); return null; }
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(e.detail || r.statusText);
+  }
+  return r.json();
+}
+const GET  = p => api('GET', p);
+const POST = (p,b) => api('POST', p, b);
+const DEL  = p => api('DELETE', p);
+
+// ══════════════════════════════════════════
+// UTIL
+// ══════════════════════════════════════════
+function relevance(analysis) {
+  if (analysis === 'NO_PDF') return 'no_pdf';
+  if (!analysis || analysis.startsWith('שגיאה')) return 'unknown';
+  const m1 = analysis.match(/רלוונטיות[^\n]*?:\s*\**([גבוהבינוניתנמוכה]+)/);
+  if (m1) {
+    const w = m1[1];
+    if (w.includes('גבוהה')) return 'high';
+    if (w.includes('בינונית')) return 'medium';
+    if (w.includes('נמוכה')) return 'low';
+  }
+  if (analysis.includes('גבוהה')) return 'high';
+  if (analysis.includes('בינונית')) return 'medium';
+  if (analysis.includes('נמוכה')) return 'low';
+  return 'unknown';
+}
+function badgeHtml(r) {
+  const map = {high:'🟢 גבוהה',medium:'🟡 בינונית',low:'🔴 נמוכה',no_pdf:'⬛ ללא PDF',unknown:'⚪ לא ידוע'};
+  return `<span class="badge badge-${r}">${map[r]||r}</span>`;
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function toast(msg, type='success') {
+  const d = document.createElement('div');
+  d.className = type === 'error' ? 'error' : 'success';
+  d.style.cssText = 'position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:9999;min-width:200px;text-align:center;max-width:400px';
+  d.textContent = msg;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 3000);
+}
+
+// ══════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════
+function showLogin() {
+  document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+}
+function showApp() {
+  document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = document.getElementById('login-err');
+  err.classList.add('hidden');
+  const fd = new FormData();
+  fd.append('username', document.getElementById('l-user').value.trim());
+  fd.append('password', document.getElementById('l-pass').value);
+  try {
+    const user = await api('POST', '/api/login', fd, true);
+    if (!user) return;
+    S.user = user;
+    S.activeApp = user.apps[0] || 'tender_scanner';
+    await initApp();
+    showApp();
+  } catch(ex) {
+    err.textContent = ex.message;
+    err.classList.remove('hidden');
+  }
+});
+
+async function doLogout() {
+  await POST('/api/logout');
+  S.user = null;
+  showLogin();
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+async function initApp() {
+  document.getElementById('sb-name').textContent = S.user.name;
+  S.settings = await GET('/api/settings');
+  S.knowledge = await GET('/api/knowledge');
+  S.lastScan = await GET('/api/last-scan') || [];
+  S.scanResults = [...S.lastScan];
+  S.history = await GET('/api/history') || [];
+  S.favorites = await GET('/api/favorites') || [];
+  S.shiftsCfg = await GET('/api/shifts/config');
+  S.aliases = Object.entries(S.shiftsCfg.aliases || {});
+  renderSidebar();
+  renderMain();
+}
+
+// ══════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════
+function renderSidebar() {
+  const appsEl = document.getElementById('sb-apps');
+  appsEl.innerHTML = '';
+  const appNames = {tender_scanner:['🔍','סריקת מכרזים'], shift_comparison:['📊','השוואת משמרות']};
+  (S.user.apps || []).forEach(id => {
+    const [ico, label] = appNames[id] || ['📱', id];
+    const b = document.createElement('button');
+    b.className = 'app-btn' + (S.activeApp === id ? ' active' : '');
+    b.innerHTML = `<span>${ico}</span><span>${label}</span>`;
+    b.onclick = () => { S.activeApp = id; S.activeTab = id === 'tender_scanner' ? 'scan' : ''; renderSidebar(); renderMain(); };
+    appsEl.appendChild(b);
+  });
+  renderSbSettings();
+}
+
+function renderSbSettings() {
+  const el = document.getElementById('sb-settings');
+  if (S.activeApp === 'tender_scanner') {
+    el.innerHTML = `
+      <div class="sb-section">הגדרות סריקה</div>
+      <div class="sb-settings">
+        <label class="sb-label">ימים אחורה</label>
+        <input class="sb-input" id="sb-days" type="number" min="1" max="90" value="${S.settings.scraper.days_back}">
+        <label class="sb-label">מקסימום מכרזים</label>
+        <input class="sb-input" id="sb-max" type="number" min="1" max="500" value="${S.settings.scraper.max_tenders_per_run}">
+        <button class="sb-save" onclick="saveSbTenderSettings()">💾 שמור</button>
+      </div>`;
+  } else {
+    const cfg = S.shiftsCfg || {};
+    const cols = cfg.excel_columns || {};
+    el.innerHTML = `
+      <div class="sb-section">הגדרות השוואה</div>
+      <div class="sb-settings">
+        <details class="sb-exp">
+          <summary>עמודות אקסל</summary>
+          <label class="sb-label">תאריך</label><input class="sb-input" id="sb-col-date" maxlength="3" value="${cols.date||'B'}">
+          <label class="sb-label">התחלה</label><input class="sb-input" id="sb-col-start" maxlength="3" value="${cols.start_time||'C'}">
+          <label class="sb-label">סיום</label><input class="sb-input" id="sb-col-end" maxlength="3" value="${cols.end_time||'D'}">
+          <label class="sb-label">עובד</label><input class="sb-input" id="sb-col-name" maxlength="3" value="${cols.worker_name||'F'}">
+          <label class="sb-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
+            <input type="checkbox" id="sb-header" ${cfg.excel_has_header!==false?'checked':''}> שורת כותרת
+          </label>
+        </details>
+        <label class="sb-label">סף פער (דקות)</label>
+        <input class="sb-input" id="sb-gap" type="number" min="0" value="${(cfg.rules||{}).gap_threshold_minutes||30}">
+        <label class="sb-label">שעת ברירת מחדל</label>
+        <input class="sb-input" id="sb-defstart" maxlength="5" value="${(cfg.rules||{}).default_start_time||'10:00'}">
+        <button class="sb-save" onclick="saveSbShiftsSettings()">💾 שמור הגדרות</button>
+        <hr class="divider">
+        <div class="sb-section" style="margin-top:0">כינויי שמות</div>
+        <div id="sb-aliases"></div>
+        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:.3rem" onclick="addAlias()">➕ הוסף</button>
+        <button class="sb-save" style="margin-top:.4rem" onclick="saveAliases()">💾 שמור כינויים</button>
+      </div>`;
+    renderAliases();
+  }
+}
+
+function renderAliases() {
+  const el = document.getElementById('sb-aliases');
+  if (!el) return;
+  el.innerHTML = S.aliases.map(([m,x],i) => `
+    <div class="alias-row">
+      <input placeholder="בהודעה" value="${esc(m)}" oninput="S.aliases[${i}][0]=this.value">
+      <input placeholder="באקסל" value="${esc(x)}" oninput="S.aliases[${i}][1]=this.value">
+      <button class="alias-del" onclick="S.aliases.splice(${i},1);renderAliases()">✕</button>
+    </div>`).join('');
+}
+function addAlias() { S.aliases.push(['','']); renderAliases(); }
+
+async function saveSbTenderSettings() {
+  S.settings.scraper.days_back = parseInt(document.getElementById('sb-days').value);
+  S.settings.scraper.max_tenders_per_run = parseInt(document.getElementById('sb-max').value);
+  await POST('/api/settings', S.settings);
+  toast('נשמר!');
+}
+
+async function saveSbShiftsSettings() {
+  S.shiftsCfg.excel_columns = {
+    date: document.getElementById('sb-col-date').value.trim().toUpperCase(),
+    start_time: document.getElementById('sb-col-start').value.trim().toUpperCase(),
+    end_time: document.getElementById('sb-col-end').value.trim().toUpperCase(),
+    worker_name: document.getElementById('sb-col-name').value.trim().toUpperCase(),
+  };
+  S.shiftsCfg.excel_has_header = document.getElementById('sb-header').checked;
+  S.shiftsCfg.rules.gap_threshold_minutes = parseInt(document.getElementById('sb-gap').value);
+  S.shiftsCfg.rules.default_start_time = document.getElementById('sb-defstart').value.trim();
+  await POST('/api/shifts/config', S.shiftsCfg);
+  toast('נשמר!');
+}
+
+async function saveAliases() {
+  S.shiftsCfg.aliases = Object.fromEntries(S.aliases.filter(([k,v])=>k.trim()&&v.trim()));
+  await POST('/api/shifts/config', S.shiftsCfg);
+  toast('כינויים נשמרו!');
+}
+
+// ══════════════════════════════════════════
+// MAIN ROUTING
+// ══════════════════════════════════════════
+function renderMain() {
+  const ts = document.getElementById('tender-app');
+  const sh = document.getElementById('shifts-app');
+  if (S.activeApp === 'tender_scanner') {
+    ts.classList.remove('hidden'); sh.classList.add('hidden');
+    renderTenderApp();
+  } else {
+    sh.classList.remove('hidden'); ts.classList.add('hidden');
+    renderShiftsApp();
+  }
+}
+
+// ══════════════════════════════════════════
+// TENDER SCANNER
+// ══════════════════════════════════════════
+function renderTenderApp() {
+  const isAdmin = S.user.role === 'admin';
+  const tabs = ['scan','manual','history','favorites'];
+  if (isAdmin) tabs.push('learn');
+  tabs.push('settings');
+  const labels = {scan:'📡 סריקה', manual:'🔗 לפי URL', history:'📋 היסטוריה', favorites:'⭐ מועדפים', learn:'🧠 למידה', settings:'⚙️ הגדרות'};
+  document.getElementById('ts-tabs').innerHTML = tabs.map(t =>
+    `<div class="tab${S.activeTab===t?' active':''}" onclick="switchTab('${t}')">${labels[t]}</div>`
+  ).join('');
+  const content = document.getElementById('ts-content');
+  if (S.activeTab === 'scan') renderScanTab(content);
+  else if (S.activeTab === 'manual') renderManualTab(content);
+  else if (S.activeTab === 'history') renderHistoryTab(content);
+  else if (S.activeTab === 'favorites') renderFavoritesTab(content);
+  else if (S.activeTab === 'learn') renderLearnTab(content);
+  else if (S.activeTab === 'settings') renderSettingsTab(content);
+}
+
+function switchTab(t) { S.activeTab = t; renderTenderApp(); }
+
+// ── Scan tab ──────────────────────────────
+function renderScanTab(el) {
+  const days = S.settings.scraper.days_back;
+  const max = S.settings.scraper.max_tenders_per_run;
+  el.innerHTML = `
+    <div style="color:var(--muted);font-size:.83rem;margin-bottom:1rem">
+      סורק מ-<b>${days}</b> הימים האחרונים | עד <b>${max}</b> מכרזים לריצה
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+      <button class="btn btn-primary" id="scan-btn" onclick="startScan()" ${S.scanRunning?'disabled':''}>
+        ${S.scanRunning ? '⏳ סורק...' : '▶ הפעל סריקה'}
+      </button>
+      <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer">
+        <input type="checkbox" id="skip-seen" ${!S.scanRunning?'':'disabled'} checked> דלג על שנסרקו
+      </label>
+    </div>
+    <div id="scan-progress" class="hidden"></div>
+    <div id="scan-results"></div>`;
+  if (S.scanResults.length) renderResultList('scan-results', S.scanResults, S.filter);
+}
+
+function startScan() {
+  if (S.scanRunning) return;
+  S.scanRunning = true;
+  S.scanResults = [];
+  S.filter = 'all';
+  renderTenderApp();
+
+  const skipSeen = document.getElementById('skip-seen').checked;
+  const prog = document.getElementById('scan-progress');
+  prog.classList.remove('hidden');
+  prog.innerHTML = `
+    <div class="progress-wrap">
+      <div style="font-size:.85rem;font-weight:600;margin-bottom:.3rem" id="prog-status">מתחיל סריקה...</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="prog-bar" style="width:0%"></div></div>
+      <div class="progress-log" id="prog-log"></div>
+    </div>`;
+
+  const evtSrc = new EventSource(`/api/scan?skip_seen=${skipSeen}`);
+
+  evtSrc.onmessage = e => {
+    const d = JSON.parse(e.data);
+    const statusEl = document.getElementById('prog-status');
+    const barEl = document.getElementById('prog-bar');
+    const logEl = document.getElementById('prog-log');
+
+    if (d.type === 'status') {
+      if (statusEl) statusEl.textContent = d.msg;
+    } else if (d.type === 'count') {
+      if (statusEl) statusEl.textContent = `נמצאו ${d.total} מכרזים | ${d.new} חדשים לניתוח`;
+    } else if (d.type === 'progress') {
+      if (statusEl) statusEl.textContent = `[${d.i}/${d.total}] ${d.title}`;
+      if (barEl) barEl.style.width = (d.i / d.total * 100) + '%';
+      if (logEl) { const p = document.createElement('p'); p.textContent = `🔎 ${d.title}`; logEl.prepend(p); }
+    } else if (d.type === 'result') {
+      S.scanResults.push(d.data);
+      if (barEl) barEl.style.width = (d.pct * 100) + '%';
+      renderResultList('scan-results', S.scanResults, S.filter);
+    } else if (d.type === 'complete') {
+      evtSrc.close();
+      S.scanRunning = false;
+      if (statusEl) statusEl.textContent = `✅ הסריקה הושלמה — ${d.count} מכרזים נותחו`;
+      if (barEl) barEl.style.width = '100%';
+      renderScanFilterBar();
+    } else if (d.type === 'error') {
+      evtSrc.close();
+      S.scanRunning = false;
+      if (prog) prog.innerHTML = `<div class="error">שגיאה: ${esc(d.msg)}</div>`;
+    }
+  };
+
+  evtSrc.onerror = () => {
+    evtSrc.close();
+    S.scanRunning = false;
+    const prog = document.getElementById('scan-progress');
+    if (prog) prog.innerHTML = `<div class="error">החיבור לשרת נותק</div>`;
+  };
+}
+
+function renderScanFilterBar() {
+  // update tabs to show scan tab with filter bar
+}
+
+function renderResultList(containerId, results, filter) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const order = {high:0, medium:1, low:2, unknown:3, no_pdf:4};
+  const sorted = [...results].sort((a,b) => (order[relevance(a.analysis)]||3) - (order[relevance(b.analysis)]||3));
+  const counts = {};
+  results.forEach(r => { const k = relevance(r.analysis); counts[k] = (counts[k]||0)+1; });
+
+  const filtered = filter === 'all' ? sorted : sorted.filter(r => relevance(r.analysis) === filter);
+
+  el.innerHTML = `
+    <div class="filter-bar">
+      <button class="filter-btn${filter==='all'?' active':''}" onclick="setFilter('all','${containerId}',window._curResults)">הכל (${results.length})</button>
+      <button class="filter-btn${filter==='high'?' active':''}" onclick="setFilter('high','${containerId}',window._curResults)">🟢 גבוהה (${counts.high||0})</button>
+      <button class="filter-btn${filter==='medium'?' active':''}" onclick="setFilter('medium','${containerId}',window._curResults)">🟡 בינונית (${counts.medium||0})</button>
+      <button class="filter-btn${filter==='low'?' active':''}" onclick="setFilter('low','${containerId}',window._curResults)">🔴 נמוכה (${counts.low||0})</button>
+    </div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.7rem">מציג ${filtered.length} מכרזים</div>
+    ${filtered.map(r => tenderCard(r, filter)).join('')}`;
+
+  window._curResults = results;
+}
+
+function setFilter(f, cid, results) {
+  if (cid === 'scan-results') S.filter = f;
+  else if (cid === 'hist-results') S.histFilter = f;
+  renderResultList(cid, results, f);
+}
+
+function tenderCard(r, _filter, prefix) {
+  const rel = relevance(r.analysis);
+  const isFav = S.favorites.includes(r.tender_id);
+  const pid = prefix || 'tc';
+  const key = `${pid}_${r.tender_id}`;
+  return `
+    <div class="card" id="card_${key}">
+      <div class="card-header" onclick="toggleCard('card_${key}')">
+        <div class="card-title">${badgeHtml(rel)} &nbsp;${esc(r.title.substring(0,90))}${r.title.length>90?'...':''}</div>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${r.tender_id}')">${isFav?'⭐':'☆'}</button>
+          <span class="card-chevron">▼</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-meta">
+          ${r.publisher?`<span><b>מפרסם:</b> ${esc(r.publisher)}</span>`:''}
+          ${r.publish_date?`<span><b>פרסום:</b> ${esc(r.publish_date)}</span>`:''}
+          ${r.deadline?`<span><b>הגשה:</b> ${esc(r.deadline)}</span>`:''}
+          ${r.has_pdf?'<span>✅ PDF</span>':'<span>⚠️ ללא PDF</span>'}
+          <a href="${esc(r.url)}" target="_blank" style="color:var(--accent);font-size:.8rem">🔗 לדף המכרז</a>
+        </div>
+        <hr class="divider">
+        ${r.analysis === 'NO_PDF'
+          ? '<div class="info">לא נמצא PDF — הניתוח דולג.</div>'
+          : `<div class="analysis-text">${esc(r.analysis)}</div>`
+        }
+        ${r.analysis !== 'NO_PDF' ? chatSection(r.tender_id, key) : ''}
+      </div>
+    </div>`;
+}
+
+function toggleCard(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
+async function toggleFav(tid) {
+  S.favorites = await POST(`/api/favorites/${tid}`);
+  // re-render current tab
+  if (S.activeTab === 'favorites') { S.activeTab='favorites'; renderTenderApp(); }
+  else {
+    document.querySelectorAll(`.fav-btn`).forEach(b => {
+      if (b.onclick && b.onclick.toString().includes(tid)) {
+        b.textContent = S.favorites.includes(tid) ? '⭐' : '☆';
+      }
+    });
+  }
+}
+
+function chatSection(tid, key) {
+  const history = S.chats[key] || [];
+  return `
+    <div class="chat-area">
+      <div style="font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">💬 שאל שאלה על המכרז</div>
+      <div id="chat_${key}">
+        ${history.map(m=>`<div class="chat-msg ${m.role}">${m.role==='user'?'🧑':'🤖'} ${esc(m.content)}</div>`).join('')}
+      </div>
+      <div class="chat-form">
+        <input id="cinput_${key}" placeholder="שאל שאלה..." onkeydown="if(event.key==='Enter')sendChat('${tid}','${key}')">
+        <button onclick="sendChat('${tid}','${key}')">שלח</button>
+      </div>
+    </div>`;
+}
+
+async function sendChat(tid, key) {
+  const inp = document.getElementById(`cinput_${key}`);
+  const msg = inp?.value.trim();
+  if (!msg) return;
+  inp.value = '';
+
+  const tender = [...S.scanResults, ...S.history, S.manualResult].find(r => r && r.tender_id === tid);
+  if (!S.chats[key]) S.chats[key] = [];
+  S.chats[key].push({role:'user', content: msg});
+  renderChatMessages(key);
+
+  try {
+    const res = await POST('/api/chat', { tender, history: S.chats[key] });
+    if (res) {
+      S.chats[key].push({role:'assistant', content: res.reply});
+      renderChatMessages(key);
+    }
+  } catch(e) {
+    S.chats[key].push({role:'assistant', content:`שגיאה: ${e.message}`});
+    renderChatMessages(key);
+  }
+}
+
+function renderChatMessages(key) {
+  const el = document.getElementById(`chat_${key}`);
+  if (!el) return;
+  el.innerHTML = (S.chats[key]||[]).map(m =>
+    `<div class="chat-msg ${m.role}">${m.role==='user'?'🧑':'🤖'} ${esc(m.content)}</div>`
+  ).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Manual URL tab ────────────────────────
+function renderManualTab(el) {
+  el.innerHTML = `
+    <h3 style="font-size:1rem;margin-bottom:.5rem">ניתוח מכרז לפי קישור</h3>
+    <p style="font-size:.83rem;color:var(--muted);margin-bottom:1rem">הדבק קישור למכרז מ-mr.gov.il וקבל ניתוח מיידי</p>
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+      <input id="manual-url" style="flex:1;padding:.55rem .8rem;border:1px solid var(--border);border-radius:var(--radius);direction:ltr;font-size:.88rem" placeholder="https://mr.gov.il/...">
+      <button class="btn btn-primary" onclick="runManualAnalyze()">🔍 נתח</button>
+    </div>
+    <div id="manual-result"></div>`;
+  if (S.manualResult) renderManualResult();
+}
+
+async function runManualAnalyze() {
+  const url = document.getElementById('manual-url').value.trim();
+  if (!url) return;
+  const el = document.getElementById('manual-result');
+  el.innerHTML = `<div class="info">⏳ מנתח את המכרז... (עד 90 שניות)</div>`;
+  try {
+    const r = await POST('/api/analyze', {url});
+    if (!r) return;
+    S.manualResult = r;
+    S.manualChat = [];
+    renderManualResult();
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderManualResult() {
+  const el = document.getElementById('manual-result');
+  if (!el || !S.manualResult) return;
+  const r = S.manualResult;
+  el.innerHTML = tenderCard(r, 'all', 'manual');
+  document.getElementById(`card_manual_${r.tender_id}`)?.classList.add('open');
+}
+
+// ── History tab ───────────────────────────
+function renderHistoryTab(el) {
+  if (!S.history.length) { el.innerHTML = '<div class="info">עדיין לא נותחו מכרזים.</div>'; return; }
+  el.innerHTML = `<div id="hist-results"></div>`;
+  renderResultList('hist-results', S.history, S.histFilter);
+  window._curResults = S.history;
+}
+
+// ── Favorites tab ─────────────────────────
+function renderFavoritesTab(el) {
+  const favs = S.history.filter(r => S.favorites.includes(r.tender_id));
+  if (!favs.length) { el.innerHTML = '<div class="info">לא הוספת מועדפים עדיין.</div>'; return; }
+  el.innerHTML = `<div style="font-size:.85rem;color:var(--muted);margin-bottom:.8rem">${favs.length} מכרזים מועדפים</div>`;
+  favs.forEach(r => { el.innerHTML += tenderCard(r, 'all', 'fav'); });
+}
+
+// ── Learning tab ──────────────────────────
+function renderLearnTab(el) {
+  el.innerHTML = `
+    <h3 style="font-size:1rem;margin-bottom:.35rem">🧠 מצב למידה</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">נתח מכרז, תן משוב, נתח מחדש עד שמדויק. שמור תובנות למנוע.</p>
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+      <input id="learn-url" style="flex:1;padding:.55rem .8rem;border:1px solid var(--border);border-radius:var(--radius);direction:ltr;font-size:.88rem" placeholder="https://mr.gov.il/...">
+      <button class="btn btn-primary" onclick="startLearn()">🔍 נתח</button>
+    </div>
+    <div id="learn-result"></div>
+    <div id="learn-knowledge"></div>`;
+  renderKnowledgeBase();
+  if (S.learnResult) renderLearnResult();
+}
+
+async function startLearn() {
+  const url = document.getElementById('learn-url')?.value.trim();
+  if (!url) return;
+  const el = document.getElementById('learn-result');
+  el.innerHTML = `<div class="info">⏳ מנתח...</div>`;
+  S.learnFeedback = [];
+  S.learnIter = 0;
+  try {
+    const res = await POST('/api/learn/analyze', {url});
+    if (!res) return;
+    S.learnTender = res.tender;
+    S.learnResult = res.result;
+    S.learnIter = 1;
+    renderLearnResult();
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderLearnResult() {
+  const el = document.getElementById('learn-result');
+  if (!el || !S.learnResult) return;
+  const r = S.learnResult;
+  const rel = relevance(r.analysis);
+  el.innerHTML = `
+    <hr class="divider">
+    <div style="margin-bottom:.75rem">
+      ${badgeHtml(rel)} &nbsp; <b>${esc(r.title)}</b>
+      ${r.publisher?`<span style="font-size:.8rem;color:var(--muted);margin-right:.75rem"> ${esc(r.publisher)}</span>`:''}
+      ${r.deadline?`<span style="font-size:.8rem;color:var(--muted)"> 📅 ${esc(r.deadline)}</span>`:''}
+    </div>
+    <div class="analysis-text" style="background:var(--bg2);padding:1rem;border-radius:var(--radius);margin-bottom:1rem">${esc(r.analysis)}</div>
+    ${S.learnFeedback.length ? `<div style="margin-bottom:.75rem">
+      <b style="font-size:.82rem">משוב שניתן:</b>
+      ${S.learnFeedback.map((f,i)=>`<div class="info" style="margin:.3rem 0">#${i+1}: ${esc(f)}</div>`).join('')}
+    </div>` : ''}
+    <hr class="divider">
+    <div style="font-size:.85rem;font-weight:600;margin-bottom:.4rem">📝 מה לא מדויק?</div>
+    <textarea id="learn-fb" style="width:100%;height:90px;padding:.6rem;border:1px solid var(--border);border-radius:var(--radius);font-size:.85rem;direction:rtl;resize:vertical" placeholder="לדוגמה: הרלוונטיות צריכה להיות גבוהה יותר..."></textarea>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem">
+      <button class="btn btn-outline" onclick="reanalyze()">🔄 נתח מחדש</button>
+      <button class="btn btn-primary" onclick="saveLearnKnowledge()">💾 שמור תובנות</button>
+    </div>`;
+}
+
+async function reanalyze() {
+  const fb = document.getElementById('learn-fb')?.value.trim();
+  if (!fb) { toast('נא לכתוב משוב','error'); return; }
+  S.learnFeedback.push(fb);
+  const el = document.getElementById('learn-result');
+  el.innerHTML = `<div class="info">🔄 מנתח מחדש...</div>`;
+  try {
+    const res = await POST('/api/learn/reanalyze', {tender: S.learnTender, feedback: S.learnFeedback});
+    if (!res) return;
+    S.learnResult = res;
+    S.learnIter++;
+    renderLearnResult();
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+async function saveLearnKnowledge() {
+  const fb = document.getElementById('learn-fb')?.value.trim();
+  const all = fb ? [...S.learnFeedback, fb] : S.learnFeedback;
+  if (!all.length) { toast('נא לתת לפחות משוב אחד','error'); return; }
+  try {
+    const res = await POST('/api/learn/save', {title: S.learnTender?.title||'', feedback: all});
+    if (!res) return;
+    S.knowledge = await GET('/api/knowledge');
+    toast(`✅ נשמרו ${res.new.length} תובנות!`);
+    renderKnowledgeBase();
+  } catch(e) {
+    toast(`שגיאה: ${e.message}`, 'error');
+  }
+}
+
+function renderKnowledgeBase() {
+  const el = document.getElementById('learn-knowledge');
+  if (!el) return;
+  if (!S.knowledge.length) return;
+  el.innerHTML = `
+    <hr class="divider">
+    <details>
+      <summary style="cursor:pointer;font-size:.85rem;color:var(--muted)">📚 בסיס הידע (${S.knowledge.length} תובנות)</summary>
+      <div style="margin-top:.5rem">
+        ${S.knowledge.map((g,i)=>`
+          <div style="display:flex;align-items:baseline;gap:.5rem;margin:.3rem 0">
+            <span style="font-size:.83rem;flex:1;direction:rtl">${i+1}. ${esc(g)}</span>
+            <button class="btn btn-danger btn-sm" onclick="deleteKnowledge(${i})">🗑</button>
+          </div>`).join('')}
+      </div>
+    </details>`;
+}
+
+async function deleteKnowledge(idx) {
+  S.knowledge = await DEL(`/api/knowledge/${idx}`);
+  renderKnowledgeBase();
+}
+
+// ── Settings tab ──────────────────────────
+function renderSettingsTab(el) {
+  const s = S.settings;
+  el.innerHTML = `
+    <h3 style="font-size:1rem;margin-bottom:1rem">⚙️ הגדרות סריקה</h3>
+    <div class="settings-grid">
+      <div class="settings-field"><label>ימים אחורה לסריקה</label><input id="st-days" type="number" value="${s.scraper.days_back}"></div>
+      <div class="settings-field"><label>מקסימום מכרזים לריצה</label><input id="st-max" type="number" value="${s.scraper.max_tenders_per_run}"></div>
+      <div class="settings-field"><label>תקציב מינימלי שנתי (₪)</label><input id="st-bmin" type="number" value="${s.budget.min_annual_ils}"></div>
+      <div class="settings-field"><label>תקציב מקסימלי שנתי (₪)</label><input id="st-bmax" type="number" value="${s.budget.max_annual_ils}"></div>
+    </div>
+    <div class="settings-field" style="margin-bottom:1rem"><label>ענפים רלוונטיים (שורה אחת לכל ענף)</label>
+      <textarea id="st-ind">${s.industries.join('\n')}</textarea></div>
+    <div class="settings-grid">
+      <div class="settings-field"><label>שכר חודשי (₪)</label><input id="st-monthly" type="number" value="${s.labor_costs.simple_monthly_ils}"></div>
+      <div class="settings-field"><label>שכר שעתי (₪)</label><input id="st-hourly" type="number" value="${s.labor_costs.simple_hourly_ils}"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveSettings()">💾 שמור הגדרות</button>
+    <div id="st-msg"></div>`;
+}
+
+async function saveSettings() {
+  S.settings.scraper.days_back = parseInt(document.getElementById('st-days').value);
+  S.settings.scraper.max_tenders_per_run = parseInt(document.getElementById('st-max').value);
+  S.settings.budget.min_annual_ils = parseInt(document.getElementById('st-bmin').value);
+  S.settings.budget.max_annual_ils = parseInt(document.getElementById('st-bmax').value);
+  S.settings.industries = document.getElementById('st-ind').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  S.settings.labor_costs.simple_monthly_ils = parseInt(document.getElementById('st-monthly').value);
+  S.settings.labor_costs.simple_hourly_ils = parseInt(document.getElementById('st-hourly').value);
+  await POST('/api/settings', S.settings);
+  document.getElementById('st-msg').innerHTML = `<div class="success" style="margin-top:.75rem">✅ ההגדרות נשמרו!</div>`;
+}
+
+// ══════════════════════════════════════════
+// SHIFT COMPARISON
+// ══════════════════════════════════════════
+let _shiftsFile = null;
+
+function renderShiftsApp() {
+  const el = document.getElementById('shifts-content');
+  el.innerHTML = `
+    <p style="font-size:.83rem;color:var(--muted);margin-bottom:1.2rem">הדבק הודעת וואטסאפ ועלה קובץ אקסל להשוואת משמרות</p>
+    <div class="shifts-grid">
+      <div>
+        <div style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">📱 הודעת וואטסאפ</div>
+        <textarea id="sh-msg" placeholder="הדבק כאן את הודעת הוואטסאפ..."></textarea>
+      </div>
+      <div>
+        <div style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">📂 קובץ אקסל</div>
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('sh-file').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleDrop(event)">
+          <input type="file" id="sh-file" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+          <div style="font-size:1.8rem">📂</div>
+          <span class="upload-label">לחץ או גרור קובץ Excel</span>
+          <div id="file-name" style="font-size:.8rem;color:var(--accent);margin-top:.3rem"></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-bottom:1rem" onclick="runCompare()">⚡ השווה</button>
+    <div id="shifts-result"></div>`;
+
+  if (S.shiftsResult) renderShiftsResult();
+}
+
+function handleFile(file) {
+  if (!file) return;
+  _shiftsFile = file;
+  document.getElementById('file-name').textContent = `✅ ${file.name}`;
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-area').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+}
+
+async function runCompare() {
+  const msg = document.getElementById('sh-msg').value.trim();
+  if (!msg) { toast('נא להדביק הודעת וואטסאפ', 'error'); return; }
+  if (!_shiftsFile) { toast('נא להעלות קובץ אקסל', 'error'); return; }
+
+  const el = document.getElementById('shifts-result');
+  el.innerHTML = `<div class="info">⏳ משווה נתונים...</div>`;
+
+  const fd = new FormData();
+  fd.append('message', msg);
+  fd.append('excel', _shiftsFile);
+
+  try {
+    const res = await api('POST', '/api/shifts/compare', fd, true);
+    if (!res) return;
+    S.shiftsResult = res.results;
+    S.shiftsToken = res.token;
+    renderShiftsResult();
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderShiftsResult() {
+  const el = document.getElementById('shifts-result');
+  if (!el || !S.shiftsResult) return;
+  const r = S.shiftsResult;
+  const counts = {};
+  r.forEach(row => { counts[row.status] = (counts[row.status]||0)+1; });
+
+  const STATUS_BG = {ok:'var(--green-bg)', gap:'var(--yellow-bg)', missing_msg:'var(--orange-bg)', missing_excel:'var(--red-bg)'};
+  const STATUS_LABEL = {ok:'✅ תקין', gap:'⚠️ פער', missing_msg:'🟠 חסר בהודעה', missing_excel:'🔴 חסר באקסל'};
+
+  el.innerHTML = `
+    <div class="status-counts">
+      <div class="status-card" style="background:var(--green-bg)"><div class="count" style="color:var(--green)">${counts.ok||0}</div><div class="label">תקין</div></div>
+      <div class="status-card" style="background:var(--yellow-bg)"><div class="count" style="color:var(--yellow)">${counts.gap||0}</div><div class="label">פער</div></div>
+      <div class="status-card" style="background:var(--orange-bg)"><div class="count" style="color:var(--orange)">${counts.missing_msg||0}</div><div class="label">חסר בהודעה</div></div>
+      <div class="status-card" style="background:var(--red-bg)"><div class="count" style="color:var(--red)">${counts.missing_excel||0}</div><div class="label">חסר באקסל</div></div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <a href="/api/shifts/download/${S.shiftsToken}" class="btn btn-primary">⬇️ הורד Excel</a>
+    </div>
+    <hr class="divider">
+    ${r.map(row => {
+      const bg = STATUS_BG[row.status] || '#fff';
+      const label = STATUS_LABEL[row.status] || row.status;
+      const time = row.start_time ? `${row.start_time}–${row.end_time}` : '';
+      return `<div class="result-row" style="background:${bg}">
+        <span class="r-status">${label}</span>
+        <span class="r-worker">${esc(row.worker_name)}</span>
+        ${row.workplace?`<span style="color:var(--muted)">${esc(row.workplace)}</span>`:''}
+        ${row.date?`<span style="color:var(--muted)">${esc(row.date)}</span>`:''}
+        ${time?`<span style="color:var(--muted)">${esc(time)}</span>`:''}
+        ${row.notes?`<span class="r-notes">${esc(row.notes)}</span>`:''}
+      </div>`;
+    }).join('')}`;
+}
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+(async () => {
+  try {
+    const user = await GET('/api/me');
+    if (user) {
+      S.user = user;
+      S.activeApp = user.apps[0] || 'tender_scanner';
+      await initApp();
+      showApp();
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>
