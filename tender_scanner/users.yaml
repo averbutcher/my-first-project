@@ -5,11 +5,24 @@ credentials:
       name: Daniel
       password: "$2b$12$eUkCB9UxwE8flCclJiC0f.uNQJZpVKEW1PlN2QdpSShqQYbAbS0Iq"
       role: admin
+      apps:
+        - tender_scanner
+        - shift_comparison
+    dorra:
+      email: DorRa@electra-target.co.il
+      name: Dor Racket
+      password: "$2b$12$SHy/YxUTNiu4hDzmm6hjEue5MCJIKggWGEoRt6ujVXtk/12lYFpau"
+      role: admin
+      apps:
+        - tender_scanner
+        - shift_comparison
     user1:
       email: user@example.com
       name: User
       password: "$2b$12$cPk0AH4TAWh47mtt6Eh3p.iNyWXwrgMJH1lKJT/WAGpBzctJ8hwu2"
       role: user
+      apps:
+        - tender_scanner
 cookie:
   expiry_days: 30
   key: tender_scanner_secret_key_change_this

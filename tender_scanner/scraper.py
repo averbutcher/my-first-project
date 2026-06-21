@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from pypdf import PdfReader
+import docx
 from playwright.async_api import async_playwright, Page, TimeoutError as PWTimeout
 
 BASE = "https://mr.gov.il"
@@ -252,13 +253,17 @@ async def fetch_tender_detail(tender_meta: dict, settings: dict) -> Tender:
 
 
 async def _find_booklet_pdf(page: Page) -> Optional[str]:
-    """Find חוברת המכרז PDF link on the page."""
+    """Find חוברת המכרז PDF or Word document link on the page."""
     for selector in [
         "a:has-text('חוברת המכרז')",
         "a:has-text('חוברת')",
         "a[href$='.pdf']",
+        "a[href$='.docx']",
+        "a[href$='.doc']",
         "a[href*='pdf']",
         "a[href*='PDF']",
+        "a[href*='docx']",
+        "a[href*='doc']",
     ]:
         try:
             el = await page.query_selector(selector)
@@ -272,37 +277,72 @@ async def _find_booklet_pdf(page: Page) -> Optional[str]:
 
 
 async def _download_and_extract_pdf(context, pdf_url: str, timeout: int) -> str:
-    """Download a PDF and extract its text."""
+    """Download a document (PDF or Word) and extract its text."""
     page = await context.new_page()
     try:
-        # Try direct HTTP fetch first (faster than waiting for download event)
         response = await context.request.get(pdf_url, timeout=timeout)
         body = await response.body()
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(body)
-            tmp_path = tmp.name
-        return _extract_pdf_text(tmp_path)
+        content_type = response.headers.get("content-type", "")
+        return _extract_document_text(body, pdf_url, content_type)
     except Exception:
         try:
             async with page.expect_download(timeout=timeout) as dl_info:
                 await page.goto(pdf_url, timeout=timeout)
             download = await dl_info.value
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                await download.save_as(tmp.name)
-                tmp_path = tmp.name
-            return _extract_pdf_text(tmp_path)
+            tmp_path = tempfile.mktemp()
+            await download.save_as(tmp_path)
+            body = Path(tmp_path).read_bytes()
+            Path(tmp_path).unlink(missing_ok=True)
+            return _extract_document_text(body, pdf_url, "")
         except Exception:
             return ""
     finally:
         await page.close()
 
 
-def _extract_pdf_text(path: str) -> str:
+def _is_word_doc(body: bytes, url: str, content_type: str) -> bool:
+    url_lower = url.lower()
+    if url_lower.endswith(".docx") or url_lower.endswith(".doc"):
+        return True
+    if "wordprocessingml" in content_type or "msword" in content_type:
+        return True
+    # DOCX files are ZIP archives starting with PK
+    if body[:2] == b"PK" and b"word/" in body[:2000]:
+        return True
+    return False
+
+
+def _extract_document_text(body: bytes, url: str, content_type: str) -> str:
     try:
-        reader = PdfReader(path)
+        if _is_word_doc(body, url, content_type):
+            return _extract_docx_text(body)
+        return _extract_pdf_text_from_bytes(body)
+    except Exception:
+        return ""
+
+
+def _extract_pdf_text_from_bytes(body: bytes) -> str:
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(body)
+            tmp_path = tmp.name
+        reader = PdfReader(tmp_path)
         pages = [page.extract_text() or "" for page in reader.pages]
-        Path(path).unlink(missing_ok=True)
+        Path(tmp_path).unlink(missing_ok=True)
         return "\n".join(pages)[:50000]
+    except Exception:
+        return ""
+
+
+def _extract_docx_text(body: bytes) -> str:
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+            tmp.write(body)
+            tmp_path = tmp.name
+        doc = docx.Document(tmp_path)
+        text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        Path(tmp_path).unlink(missing_ok=True)
+        return text[:50000]
     except Exception:
         return ""
 
