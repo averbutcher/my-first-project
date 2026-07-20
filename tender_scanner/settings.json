@@ -36,7 +36,7 @@
     "subject_prefix": "[Tender Scanner]"
   },
   "scraper": {
-    "base_url": "https://mr.gov.il/ilgstorefront/he/search/?q=%3AupdateDate%3Aarchive%3Afalse&s=TENDER",
+    "base_url": "https://mr.gov.il/ilgstorefront/he/search/?q=%3AupdateDate%3Aarchive%3Afalse&text=&s=TENDER",
     "max_tenders_per_run": 200,
     "days_back": 7,
     "page_load_timeout_ms": 30000

@@ -51,7 +51,15 @@ async def fetch_tender_list(settings: dict) -> list[dict]:
         )
         page = await context.new_page()
 
+        # Navigate and handle redirect — site may redirect to default search
         await page.goto(base_url, timeout=timeout, wait_until="domcontentloaded")
+        await page.wait_for_timeout(2000)
+
+        # If redirected away from tender search, navigate explicitly to correct URL
+        if "s=TENDER" not in page.url:
+            target = "https://mr.gov.il/ilgstorefront/he/search/?q=%3AupdateDate%3Aarchive%3Afalse&text=&s=TENDER"
+            await page.goto(target, timeout=timeout, wait_until="domcontentloaded")
+            await page.wait_for_timeout(2000)
 
         # Wait for tender cards to appear
         try:
@@ -61,10 +69,13 @@ async def fetch_tender_list(settings: dict) -> list[dict]:
             return results
 
         # Keep clicking "הצג עוד" until the oldest update date on the page is past the cutoff
-        # Safety limit: ceil(max_tenders / 20) clicks, since each click loads ~20 tenders
         max_clicks = max(15, (max_tenders // 20) + 1)
         for _ in range(max_clicks):
-            btn = await page.query_selector("button.show-more-button")
+            btn = None
+            for sel in ["button.show-more-button", "button:has-text('הצג עוד')", "a:has-text('הצג עוד')", ".show-more", "[class*='show-more']"]:
+                btn = await page.query_selector(sel)
+                if btn:
+                    break
             if not btn:
                 break
             all_update_dates = await _extract_update_dates(page)
@@ -72,7 +83,7 @@ async def fetch_tender_list(settings: dict) -> list[dict]:
                 break
             try:
                 await btn.click()
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(2500)
             except Exception:
                 break
 
@@ -89,6 +100,7 @@ async def fetch_tender_list(settings: dict) -> list[dict]:
                 if not href.startswith("http"):
                     href = BASE + href
 
+
                 update_date = await _card_update_date(item)
                 if update_date and update_date < cutoff:
                     continue
@@ -100,6 +112,12 @@ async def fetch_tender_list(settings: dict) -> list[dict]:
                 pub_date = await _card_publish_date(item)
                 title_el = await item.query_selector("h2.search-results-content-head")
                 title = (await title_el.inner_text()).strip() if title_el else (await link_el.inner_text()).strip()
+
+                # Skip non-tender items
+                SKIP_KEYWORDS = ["הודעת פטור", "פטור ממכרז", "הודעה על כוונה"]
+                if any(kw in title for kw in SKIP_KEYWORDS):
+                    continue
+
                 tender_id = _extract_id_from_url(href)
                 if tender_id and href:
                     results.append({
@@ -256,6 +274,7 @@ async def _find_booklet_pdf(page: Page) -> Optional[str]:
     """Find חוברת המכרז PDF or Word document link on the page."""
     for selector in [
         "a:has-text('חוברת המכרז')",
+        "a:has-text('מסמכי הליך')",
         "a:has-text('חוברת')",
         "a[href$='.pdf']",
         "a[href$='.docx']",
@@ -328,8 +347,23 @@ def _extract_pdf_text_from_bytes(body: bytes) -> str:
             tmp_path = tmp.name
         reader = PdfReader(tmp_path)
         pages = [page.extract_text() or "" for page in reader.pages]
+        text = "\n".join(pages).strip()
+        if text:
+            Path(tmp_path).unlink(missing_ok=True)
+            return text[:50000]
+        # Scanned PDF — fall back to OCR (first 15 pages only)
+        try:
+            import pytesseract
+            from pdf2image import convert_from_path
+            images = convert_from_path(tmp_path, dpi=150, first_page=1, last_page=15)
+            ocr_pages = []
+            for img in images:
+                ocr_pages.append(pytesseract.image_to_string(img, lang="heb+eng"))
+            text = "\n".join(ocr_pages).strip()
+        except Exception as ocr_err:
+            text = ""
         Path(tmp_path).unlink(missing_ok=True)
-        return "\n".join(pages)[:50000]
+        return text[:50000]
     except Exception:
         return ""
 

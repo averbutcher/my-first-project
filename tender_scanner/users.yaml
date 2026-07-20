@@ -8,6 +8,7 @@ credentials:
       apps:
         - tender_scanner
         - shift_comparison
+        - recruiter_analysis
     dorra:
       email: DorRa@electra-target.co.il
       name: Dor Racket
@@ -16,13 +17,22 @@ credentials:
       apps:
         - tender_scanner
         - shift_comparison
-    user1:
-      email: user@example.com
-      name: User
-      password: "$2b$12$cPk0AH4TAWh47mtt6Eh3p.iNyWXwrgMJH1lKJT/WAGpBzctJ8hwu2"
+    vadim:
+      email: vadim@electra-target.co.il
+      name: Vadim
+      password: "$2b$12$ZitJpCsC5b7JJ7ybEaelhepyjH21A8e/g12l9SCnNlW7C/Dfs8Z1."
       role: user
       apps:
         - tender_scanner
+        - shift_comparison
+        - recruiter_analysis
+    shirnuri:
+      email: shirnuri@electra-target.co.il
+      name: Shir Nuri
+      password: "$2b$12$1W85KieXhBh/m.cPDGF/SenVs.NqTyBajF1INzXqavK0LRS.RX/Ja"
+      role: user
+      apps:
+        - recruiter_analysis
 cookie:
   expiry_days: 30
   key: tender_scanner_secret_key_change_this

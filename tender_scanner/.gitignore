@@ -1,0 +1,12 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Secrets
+.env
+
+# Runtime data
+data/
+logs/
+seen_tenders.json

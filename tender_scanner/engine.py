@@ -9,6 +9,21 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 
+
+_INVISIBLE_CHARS_RE = re.compile(
+    "[​‌‍‎‏‪‫‬‭‮⁠﻿]"
+)
+
+def normalize_match_text(s: str) -> str:
+    """Normalizes free text for exact-match comparisons (branch nicknames, workplace text):
+    strips invisible bidi/format characters (common in WhatsApp copy-paste text) and
+    collapses whitespace, so visually-identical strings compare equal."""
+    if not s:
+        return ""
+    s = _INVISIBLE_CHARS_RE.sub("", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
 DEFAULT_CONFIG = {
     "excel_columns": {
         "date": "B",
@@ -231,8 +246,8 @@ def parse_excel(file_path: str, cfg: dict) -> list[dict]:
             start_t  = parse_time(row.iloc[start_idx])
             end_t    = parse_time(row.iloc[end_idx])
 
-            # Skip rows where both times are missing
-            if start_t is None and end_t is None:
+            # Skip rows with no start time (worker forgot to clock in, end time may be misplaced)
+            if start_t is None:
                 continue
 
             hours = hours_between(start_t, end_t) if (start_t is not None and end_t is not None) else None
@@ -279,6 +294,38 @@ def _build_word_lookup(excel_by_key: dict, word_index: int) -> dict[str, str | N
         else:
             lookup[word] = key
     return lookup
+
+
+def make_worker_resolver(known_workers, aliases: dict):
+    """
+    Returns resolve(name) -> workers-table full name (or "" when unmatched).
+    Same priority as message-vs-Excel matching:
+    1. Alias/nickname  2. Exact full name  3. Unique first-word match
+    against the full name's first word, then its second word.
+    """
+    known = {n for n in known_workers if n}
+    first_word_lookup  = _build_word_lookup({k: None for k in known}, 0)
+    second_word_lookup = _build_word_lookup({k: None for k in known}, 1)
+
+    def resolve(name: str) -> str:
+        name = normalize_match_text(name or "")
+        if not name:
+            return ""
+        for k, v in aliases.items():
+            if (name == k or name == v) and v in known:
+                return v
+        if name in known:
+            return name
+        fn = _first_name(name)
+        matched = first_word_lookup.get(fn)
+        if matched:
+            return matched
+        matched = second_word_lookup.get(fn)
+        if matched:
+            return matched
+        return ""
+
+    return resolve
 
 
 # ── Comparison ─────────────────────────────────────────────────────────────────
@@ -333,6 +380,8 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
     threshold_min = cfg["rules"]["gap_threshold_minutes"]
     default_start = datetime.strptime(cfg["rules"]["default_start_time"], "%H:%M").time()
     managers      = [m.strip() for m in cfg.get("managers", []) if m.strip()]
+    known_workers = cfg.get("known_workers", set())  # set of full_names from workers table
+    branch_map    = cfg.get("branch_map", {})        # nickname(trimmed) -> canonical branch label
 
     # Infer "the date" for this run from Excel
     excel_date = next(
@@ -380,6 +429,44 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
     for key in all_keys:
         ex_rows = _filter_excel_rows(excel_by_key.get(key, []))
         ms_rows = msg_by_key.get(key, [])
+
+        # ── 1 message row, multiple Excel rows → sum Excel hours ────────────
+        if len(ms_rows) == 1 and len(ex_rows) > 1:
+            mr = ms_rows[0]
+            mh = mr["hours"] or 0
+            total_xl_hours = sum(r["hours"] or 0 for r in ex_rows if r["hours"] is not None)
+            # Use earliest start and latest end from the Excel rows
+            starts = [r["start_time"] for r in ex_rows if r["start_time"] is not None]
+            ends   = [r["end_time"]   for r in ex_rows if r["end_time"]   is not None]
+            start_t = min(starts) if starts else None
+            end_t   = max(ends)   if ends   else None
+            # Representative Excel row for date/name
+            er = ex_rows[0]
+            diff_min = abs(total_xl_hours - mh) * 60
+            if diff_min <= threshold_min:
+                output.append({
+                    "date":        er["date"],
+                    "worker_name": er["worker_name"],
+                    "workplace":   mr["workplace"],
+                    "start_time":  start_t,
+                    "end_time":    end_t,
+                    "sales":       mr["sales"],
+                    "notes":       "הכל תקין",
+                    "status":      "ok",
+                })
+            else:
+                output.append({
+                    "date":        er["date"],
+                    "worker_name": er["worker_name"],
+                    "workplace":   mr["workplace"],
+                    "start_time":  start_t,
+                    "end_time":    end_t,
+                    "sales":       mr["sales"],
+                    "notes":       f"פער של {int(diff_min)} דקות",
+                    "status":      "gap",
+                })
+            continue
+        # ────────────────────────────────────────────────────────────────────
 
         # ── Multi-workplace: several message rows but one Excel row ──────────
         if len(ms_rows) > 1 and len(ex_rows) == 1:
@@ -526,7 +613,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                 mh = mr["hours"] or 0
                 output.append({
                     "date":        excel_date or "",
-                    "worker_name": mr["worker_name"],
+                    "worker_name": key,
                     "workplace":   mr["workplace"],
                     "start_time":  default_start,
                     "end_time":    add_hours(default_start, mh),
@@ -534,6 +621,36 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     "notes":       "חסר באקסל",
                     "status":      "missing_excel",
                 })
+
+    resolve_worker = make_worker_resolver(known_workers, aliases)
+
+    for row in output:
+        if row.get("hours") is None and row.get("start_time") and row.get("end_time"):
+            row["hours"] = hours_between(row["start_time"], row["end_time"])
+        # Resolve + flag worker (name vs workers table: nickname → exact → first word)
+        flags = []
+        resolved_worker = resolve_worker(row.get("worker_name", "")) if known_workers else ""
+        row["worker_key"] = resolved_worker
+        if known_workers:
+            # Missing-from-Excel rows carry the raw message name — show the
+            # worker's regular full name from the workers table instead
+            if row.get("status") == "missing_excel" and resolved_worker:
+                row["worker_name"] = resolved_worker
+            if row.get("worker_name") and not resolved_worker:
+                flags.append("⚠️ עובד לא נמצא בטבלה")
+        # Resolve + flag branch (workplace text vs branch nicknames table)
+        workplace = normalize_match_text(row.get("workplace") or "")
+        if branch_map:
+            resolved = branch_map.get(workplace)
+            row["branch_key"] = resolved or ""
+            if workplace and not resolved:
+                flags.append("⚠️ סניף לא מזוהה")
+        else:
+            row["branch_key"] = ""
+        if flags:
+            existing_note = row.get("notes", "")
+            joined = " | ".join(flags)
+            row["notes"] = f"{existing_note} | {joined}" if existing_note else joined
 
     return output
 

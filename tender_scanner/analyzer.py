@@ -27,7 +27,10 @@ URL: {url}
 תוכן המכרז (מה-PDF):
 {pdf_text}
 
-ספק ניתוח מובנה עם הפרמטרים הבאים:
+**חובה: השורה הראשונה של התשובה חייבת להיות בדיוק בפורמט הזה (ללא שום דבר לפניה):**
+`רמת רלוונטיות: גבוהה` או `רמת רלוונטיות: בינונית` או `רמת רלוונטיות: נמוכה`
+
+לאחר מכן ספק ניתוח מובנה עם הפרמטרים הבאים:
 
 1. **סיכום** (3-4 משפטים): מה מבוקש, מי המפרסם, היקף עיקרי.
 2. **רלוונטיות ל-Electra Target** (גבוהה / בינונית / נמוכה): הסבר מדוע.
@@ -70,7 +73,7 @@ def analyze_tender(tender: Tender, settings: dict, client: anthropic.Anthropic,
     try:
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=2048,
+            max_tokens=4096,
             system=_build_system(knowledge, session_feedback),
             messages=[{"role": "user", "content": prompt}],
         )

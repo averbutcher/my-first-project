@@ -112,7 +112,16 @@ details.sb-exp summary::before{content:"▶ "}
 .card-chevron{transition:transform .2s;color:var(--muted);font-size:.8rem}
 .card-meta{font-size:.8rem;color:var(--muted);margin-bottom:.5rem}
 .card-meta span{margin-left:.9rem}
-.analysis-text{font-size:.88rem;line-height:1.75;white-space:pre-wrap;direction:rtl}
+.analysis-text{font-size:.88rem;line-height:1.75;direction:rtl;text-align:right}
+.analysis-text h1,.analysis-text h2,.analysis-text h3{font-size:1rem;font-weight:700;color:var(--primary);margin:1rem 0 .3rem;border-bottom:1px solid var(--border);padding-bottom:.2rem}
+.analysis-text p{margin:.3rem 0}
+.analysis-text ul,.analysis-text ol{margin:.3rem 0 .3rem 0;padding-right:1.4rem;padding-left:0}
+.analysis-text li{margin:.15rem 0}
+.analysis-text strong{font-weight:700;color:#1a1a1a}
+.analysis-text table{border-collapse:collapse;width:100%;margin:.5rem 0;font-size:.85rem}
+.analysis-text th{background:var(--primary);color:#fff;padding:.4rem .6rem;text-align:right;font-weight:600}
+.analysis-text td{border:1px solid var(--border);padding:.35rem .6rem;text-align:right}
+.analysis-text tr:nth-child(even) td{background:#f5f7fa}
 
 /* ── Badges ────────────────────────────────────────── */
 .badge{font-size:.75rem;padding:.2rem .55rem;border-radius:20px;font-weight:600;white-space:nowrap}
@@ -167,6 +176,25 @@ details.sb-exp summary::before{content:"▶ "}
 .settings-field textarea{height:140px;resize:vertical}
 .settings-field input:focus,.settings-field textarea:focus{outline:none;border-color:var(--accent);background:var(--bg)}
 
+/* ── Recruiter Analysis ────────────────────────────── */
+.rec-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.2rem}
+.rec-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center}
+.rec-stat-val{font-size:1.55rem;font-weight:700;line-height:1.1;margin-bottom:.25rem}
+.rec-stat-lbl{font-size:.73rem;color:var(--muted)}
+.rec-chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.rec-chart-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.rec-chart-title{font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.5rem;text-align:right}
+.rec-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.rec-table th{padding:.4rem .6rem;text-align:right;font-weight:600;background:var(--bg2);font-size:.78rem}
+.rec-table td{padding:.35rem .6rem;border-bottom:1px solid var(--border)}
+.rec-table tr:last-child td{border-bottom:none}
+.app-btn.locked{opacity:.55}
+.no-access-box{padding:4rem 2rem;text-align:center}
+.no-access-box .na-icon{font-size:3rem;margin-bottom:.75rem}
+.no-access-box .na-title{font-size:1.1rem;font-weight:600;color:var(--primary);margin-bottom:.4rem}
+.no-access-box .na-sub{font-size:.85rem;color:var(--muted)}
+@media(max-width:720px){.rec-stats-grid{grid-template-columns:repeat(2,1fr)}.rec-chart-grid{grid-template-columns:1fr}}
+
 /* ── Misc ──────────────────────────────────────────── */
 .info{background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:.75rem 1rem;font-size:.85rem;color:#1e40af;margin:.75rem 0}
 .error{background:#fee2e2;border:1px solid #fca5a5;border-radius:var(--radius);padding:.75rem 1rem;font-size:.85rem;color:#991b1b;margin:.75rem 0}
@@ -174,6 +202,8 @@ details.sb-exp summary::before{content:"▶ "}
 .fav-btn{background:none;border:none;cursor:pointer;font-size:.85rem;color:var(--muted);padding:.25rem .5rem;border-radius:4px}
 .fav-btn:hover{background:var(--bg2)}
 .divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+.tbl-grid{border-collapse:collapse}
+.tbl-grid th,.tbl-grid td{border:1px solid var(--border);text-align:center !important;padding:.3rem .5rem}
 </style>
 </head>
 <body>
@@ -186,11 +216,17 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="login-sub">אנא התחבר כדי להמשיך</div>
     <form id="login-form">
       <div class="field"><label>שם משתמש</label><input id="l-user" autocomplete="username" dir="ltr"></div>
-      <div class="field"><label>סיסמה</label><input id="l-pass" type="password" autocomplete="current-password" dir="ltr"></div>
+      <div class="field"><label>סיסמה</label>
+        <div style="position:relative">
+          <input id="l-pass" type="password" autocomplete="current-password" dir="ltr" style="width:100%;padding-left:2.2rem">
+          <button type="button" onclick="const p=document.getElementById('l-pass');p.type=p.type==='password'?'text':'password';this.textContent=p.type==='password'?'👁':'🙈'"
+            style="position:absolute;left:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;padding:0;line-height:1">👁</button>
+        </div>
+      </div>
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.0 · made by klod averbutcher</div>
+    <div class="login-ver">v2.2 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -210,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.0 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.2 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -230,6 +266,19 @@ details.sb-exp summary::before{content:"▶ "}
       <div class="page-eyebrow">Electra Target Tools</div>
       <div class="page-title">📊 השוואת משמרות</div>
       <div id="shifts-content"></div>
+    </div>
+
+    <!-- Recruiter Analysis -->
+    <div id="recruiter-app" class="hidden"></div>
+
+
+    <!-- No access -->
+    <div id="no-access-app" class="hidden">
+      <div class="no-access-box">
+        <div class="na-icon">🔒</div>
+        <div class="na-title">אין גישה</div>
+        <div class="na-sub">אין לך הרשאה להשתמש בכלי זה. פנה למנהל המערכת.</div>
+      </div>
     </div>
 
   </div>
@@ -263,6 +312,16 @@ const S = {
   shiftsToken: null,
   shiftsCfg: null,
   aliases: [],
+  reportMonth: null,
+  reportMonths: [],
+  holidays: {},  // year → [{date,name,type}]
+  recruiterData: null,
+  recruiterCfg: null,
+  recruiterTab: 'single',
+  recruiterSelected: null,
+  recruiterDateFrom: null,
+  recruiterDateTo: null,
+  recruiterRecruiters: [],
 };
 
 // ══════════════════════════════════════════
@@ -292,16 +351,11 @@ const DEL  = p => api('DELETE', p);
 function relevance(analysis) {
   if (analysis === 'NO_PDF') return 'no_pdf';
   if (!analysis || analysis.startsWith('שגיאה')) return 'unknown';
-  const m1 = analysis.match(/רלוונטיות[^\n]*?:\s*\**([גבוהבינוניתנמוכה]+)/);
-  if (m1) {
-    const w = m1[1];
-    if (w.includes('גבוהה')) return 'high';
-    if (w.includes('בינונית')) return 'medium';
-    if (w.includes('נמוכה')) return 'low';
-  }
-  if (analysis.includes('גבוהה')) return 'high';
-  if (analysis.includes('בינונית')) return 'medium';
-  if (analysis.includes('נמוכה')) return 'low';
+  // Read only the first line which Claude is instructed to format as "רמת רלוונטיות: X"
+  const firstLine = analysis.split('\n')[0];
+  if (firstLine.includes('גבוהה')) return 'high';
+  if (firstLine.includes('בינונית')) return 'medium';
+  if (firstLine.includes('נמוכה')) return 'low';
   return 'unknown';
 }
 function badgeHtml(r) {
@@ -310,6 +364,49 @@ function badgeHtml(r) {
 }
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function md(raw) {
+  const lines = String(raw||'').split('\n');
+  let html = '', inList = false, inTable = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const closeTable = () => { if (inTable) { html += '</tbody></table>'; inTable = false; } };
+  for (let i = 0; i < lines.length; i++) {
+    let l = lines[i];
+    // Table row
+    if (l.trim().startsWith('|') && l.trim().endsWith('|')) {
+      closeList();
+      const cells = l.trim().slice(1,-1).split('|').map(c=>c.trim());
+      if (cells.every(c => /^[-:]+$/.test(c))) continue; // separator row
+      if (!inTable) { html += '<table><tbody>'; inTable = true; }
+      const isHeader = i===0 || !lines[i-1]?.trim().startsWith('|');
+      const tag = isHeader ? 'th' : 'td';
+      html += '<tr>' + cells.map(c=>`<${tag}>${inline(c)}</${tag}>`).join('') + '</tr>';
+      continue;
+    }
+    closeTable();
+    // Heading
+    const hm = l.match(/^(#{1,3})\s+(.*)/);
+    if (hm) { closeList(); html += `<h${hm[1].length}>${inline(hm[2])}</h${hm[1].length}>`; continue; }
+    // Bullet
+    const bm = l.match(/^[-*+]\s+(.*)/);
+    if (bm) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(bm[1])}</li>`; continue; }
+    // Numbered list
+    const nm = l.match(/^\d+\.\s+(.*)/);
+    if (nm) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(nm[1])}</li>`; continue; }
+    // Empty line
+    if (!l.trim()) { closeList(); html += '<br>'; continue; }
+    // Normal paragraph
+    closeList();
+    html += `<p>${inline(l)}</p>`;
+  }
+  closeList(); closeTable();
+  return html;
+  function inline(s) {
+    return esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>');
+  }
 }
 function toast(msg, type='success') {
   const d = document.createElement('div');
@@ -340,14 +437,20 @@ document.getElementById('login-form').addEventListener('submit', async e => {
   fd.append('username', document.getElementById('l-user').value.trim());
   fd.append('password', document.getElementById('l-pass').value);
   try {
-    const user = await api('POST', '/api/login', fd, true);
-    if (!user) return;
+    const r = await fetch('/api/login', {method:'POST', credentials:'same-origin', body:fd});
+    if (!r.ok) {
+      err.textContent = '❌ שם משתמש או סיסמה שגויים';
+      err.classList.remove('hidden');
+      return;
+    }
+    const user = await r.json();
     S.user = user;
-    S.activeApp = user.apps[0] || 'tender_scanner';
+    const saved = localStorage.getItem('activeApp');
+    S.activeApp = (saved && user.apps.includes(saved)) ? saved : (user.apps[0] || 'tender_scanner');
     await initApp();
     showApp();
   } catch(ex) {
-    err.textContent = ex.message;
+    err.textContent = '❌ שם משתמש או סיסמה שגויים';
     err.classList.remove('hidden');
   }
 });
@@ -372,6 +475,26 @@ async function initApp() {
   S.shiftsCfg = await GET('/api/shifts/config');
   S.aliases = Object.entries(S.shiftsCfg.aliases || {});
   S.managers = S.shiftsCfg.managers || [];
+  S.recruiterCfg = await GET('/api/recruiter/config');
+  S.recruiterRecruiters = (S.recruiterCfg.recruiters || []).map(r => ({...r}));
+  if ((S.user.apps || []).includes('recruiter_analysis')) {
+    const savedFrom = localStorage.getItem('recruiterDateFrom');
+    const savedTo   = localStorage.getItem('recruiterDateTo');
+    const params = new URLSearchParams();
+    if (savedFrom && savedTo) {
+      params.set('date_from', savedFrom);
+      params.set('date_to',   savedTo);
+    } else {
+      const today = new Date();
+      const week  = new Date(today); week.setDate(today.getDate() - 6);
+      params.set('date_from', week.toISOString().slice(0,10));
+      params.set('date_to',   today.toISOString().slice(0,10));
+    }
+    S.recruiterDateFrom = params.get('date_from');
+    S.recruiterDateTo   = params.get('date_to');
+    S.recruiterData = await GET(`/api/recruiter/data?${params}`).catch(() => null);
+    if (S.recruiterData?.recruiters?.length) S.recruiterSelected = S.recruiterData.recruiters[0].extension;
+  }
   renderSidebar();
   renderMain();
 }
@@ -379,16 +502,22 @@ async function initApp() {
 // ══════════════════════════════════════════
 // SIDEBAR
 // ══════════════════════════════════════════
+const ALL_APPS = [
+  ['tender_scanner',      '🔍', 'סריקת מכרזים'],
+  ['shift_comparison',    '📊', 'השוואת משמרות'],
+  ['recruiter_analysis',  '👥', 'ניתוח מגייסים'],
+];
+
 function renderSidebar() {
   const appsEl = document.getElementById('sb-apps');
   appsEl.innerHTML = '';
-  const appNames = {tender_scanner:['🔍','סריקת מכרזים'], shift_comparison:['📊','השוואת משמרות']};
-  (S.user.apps || []).forEach(id => {
-    const [ico, label] = appNames[id] || ['📱', id];
+  const userApps = new Set(S.user.apps || []);
+  ALL_APPS.forEach(([id, ico, label]) => {
+    const hasAccess = userApps.has(id);
     const b = document.createElement('button');
-    b.className = 'app-btn' + (S.activeApp === id ? ' active' : '');
-    b.innerHTML = `<span>${ico}</span><span>${label}</span>`;
-    b.onclick = () => { S.activeApp = id; S.activeTab = id === 'tender_scanner' ? 'scan' : ''; renderSidebar(); renderMain(); };
+    b.className = 'app-btn' + (S.activeApp === id ? ' active' : '') + (hasAccess ? '' : ' locked');
+    b.innerHTML = `<span>${ico}</span><span style="flex:1">${label}</span>${hasAccess ? '' : '<span style="font-size:.7rem">🔒</span>'}`;
+    b.onclick = () => { S.activeApp = id; localStorage.setItem('activeApp', id); S.activeTab = id === 'tender_scanner' ? 'scan' : ''; renderSidebar(); renderMain(); };
     appsEl.appendChild(b);
   });
   renderSbSettings();
@@ -406,7 +535,24 @@ function renderSbSettings() {
         <input class="sb-input" id="sb-max" type="number" min="1" max="500" value="${S.settings.scraper.max_tenders_per_run}">
         <button class="sb-save" onclick="saveSbTenderSettings()">💾 שמור</button>
       </div>`;
-  } else {
+  } else if (S.activeApp === 'recruiter_analysis') {
+    const cfg = S.recruiterCfg || {};
+    el.innerHTML = `
+      <div class="sb-section">הגדרות</div>
+      <div class="sb-settings">
+        <label class="sb-label">שיחה ארוכה (דקות)</label>
+        <input class="sb-input" id="sb-rec-long" type="number" min="1" value="${cfg.long_call_threshold_minutes||8}">
+        <label class="sb-label">מספרים חוזרים (מינימום שיחות)</label>
+        <input class="sb-input" id="sb-rec-repeat" type="number" min="2" value="${cfg.repeat_call_threshold||2}">
+        <button class="sb-save" onclick="saveRecruiterSettings()">💾 שמור הגדרות</button>
+        <hr class="divider">
+        <div class="sb-section" style="margin-top:0">רשימת מגייסים</div>
+        <div id="sb-recruiters"></div>
+        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:.3rem" onclick="addRecruiter()">➕ הוסף מגייס</button>
+        <button class="sb-save" style="margin-top:.4rem" onclick="saveRecruiters()">💾 שמור מגייסים</button>
+      </div>`;
+    renderRecruiterList();
+  } else if (S.activeApp === 'shift_comparison') {
     const cfg = S.shiftsCfg || {};
     const cols = cfg.excel_columns || {};
     el.innerHTML = `
@@ -427,50 +573,8 @@ function renderSbSettings() {
         <label class="sb-label">שעת ברירת מחדל</label>
         <input class="sb-input" id="sb-defstart" maxlength="5" value="${(cfg.rules||{}).default_start_time||'10:00'}">
         <button class="sb-save" onclick="saveSbShiftsSettings()">💾 שמור הגדרות</button>
-        <hr class="divider">
-        <div class="sb-section" style="margin-top:0">כינויי שמות</div>
-        <div id="sb-aliases"></div>
-        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:.3rem" onclick="addAlias()">➕ הוסף</button>
-        <button class="sb-save" style="margin-top:.4rem" onclick="saveAliases()">💾 שמור כינויים</button>
-        <hr class="divider">
-        <div class="sb-section" style="margin-top:0">מנהלים (אופציונלי)</div>
-        <div style="font-size:.75rem;color:var(--muted);margin-bottom:.4rem">מנהלים שבאקסל תמיד, בהודעה רק לפעמים — אם חסרים בהודעה, מתעלמים מהם</div>
-        <div id="sb-managers"></div>
-        <button class="btn btn-outline btn-sm" style="width:100%;margin-top:.3rem" onclick="addManager()">➕ הוסף מנהל</button>
-        <button class="sb-save" style="margin-top:.4rem" onclick="saveManagers()">💾 שמור מנהלים</button>
       </div>`;
-    renderAliases();
-    renderManagers();
   }
-}
-
-function renderAliases() {
-  const el = document.getElementById('sb-aliases');
-  if (!el) return;
-  el.innerHTML = S.aliases.map(([m,x],i) => `
-    <div class="alias-row">
-      <input placeholder="בהודעה" value="${esc(m)}" oninput="S.aliases[${i}][0]=this.value">
-      <input placeholder="באקסל" value="${esc(x)}" oninput="S.aliases[${i}][1]=this.value">
-      <button class="alias-del" onclick="S.aliases.splice(${i},1);renderAliases()">✕</button>
-    </div>`).join('');
-}
-function addAlias() { S.aliases.push(['','']); renderAliases(); }
-
-function renderManagers() {
-  const el = document.getElementById('sb-managers');
-  if (!el) return;
-  el.innerHTML = S.managers.map((name, i) => `
-    <div class="alias-row">
-      <input placeholder="שם המנהל" value="${esc(name)}" oninput="S.managers[${i}]=this.value" style="flex:1">
-      <button class="alias-del" onclick="S.managers.splice(${i},1);renderManagers()">✕</button>
-    </div>`).join('');
-}
-function addManager() { S.managers.push(''); renderManagers(); }
-
-async function saveManagers() {
-  S.shiftsCfg.managers = S.managers.map(m => m.trim()).filter(Boolean);
-  await POST('/api/shifts/config', S.shiftsCfg);
-  toast('מנהלים נשמרו!');
 }
 
 async function saveSbTenderSettings() {
@@ -494,24 +598,26 @@ async function saveSbShiftsSettings() {
   toast('נשמר!');
 }
 
-async function saveAliases() {
-  S.shiftsCfg.aliases = Object.fromEntries(S.aliases.filter(([k,v])=>k.trim()&&v.trim()));
-  await POST('/api/shifts/config', S.shiftsCfg);
-  toast('כינויים נשמרו!');
-}
-
 // ══════════════════════════════════════════
 // MAIN ROUTING
 // ══════════════════════════════════════════
 function renderMain() {
-  const ts = document.getElementById('tender-app');
-  const sh = document.getElementById('shifts-app');
+  ['tender-app','shifts-app','recruiter-app','no-access-app'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  const userApps = new Set(S.user.apps || []);
+  if (!userApps.has(S.activeApp)) {
+    document.getElementById('no-access-app').classList.remove('hidden');
+    return;
+  }
   if (S.activeApp === 'tender_scanner') {
-    ts.classList.remove('hidden'); sh.classList.add('hidden');
+    document.getElementById('tender-app').classList.remove('hidden');
     renderTenderApp();
-  } else {
-    sh.classList.remove('hidden'); ts.classList.add('hidden');
+  } else if (S.activeApp === 'shift_comparison') {
+    document.getElementById('shifts-app').classList.remove('hidden');
     renderShiftsApp();
+  } else if (S.activeApp === 'recruiter_analysis') {
+    document.getElementById('recruiter-app').classList.remove('hidden');
+    renderRecruiterApp();
   }
 }
 
@@ -546,17 +652,47 @@ function renderScanTab(el) {
     <div style="color:var(--muted);font-size:.83rem;margin-bottom:1rem">
       סורק מ-<b>${days}</b> הימים האחרונים | עד <b>${max}</b> מכרזים לריצה
     </div>
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
       <button class="btn btn-primary" id="scan-btn" onclick="startScan()" ${S.scanRunning?'disabled':''}>
         ${S.scanRunning ? '⏳ סורק...' : '▶ הפעל סריקה'}
       </button>
       <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer">
-        <input type="checkbox" id="skip-seen" ${!S.scanRunning?'':'disabled'} checked> דלג על שנסרקו
+        <input type="checkbox" id="skip-seen" ${!S.scanRunning?'':'disabled'} ${S.skipSeen!==false?'checked':''} onchange="S.skipSeen=this.checked"> דלג על שנסרקו
       </label>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-right:auto;flex-wrap:wrap">
+        <input type="email" id="email-to" placeholder="אימייל לשליחה" dir="ltr"
+          value="${localStorage.getItem('emailTo')||''}"
+          onchange="localStorage.setItem('emailTo',this.value)"
+          style="padding:.3rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;background:var(--bg);color:var(--text);width:200px">
+        <select id="email-level" style="padding:.3rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.85rem;background:var(--bg);color:var(--text)">
+          <option value="high">🟢 גבוהה בלבד</option>
+          <option value="medium" selected>🟡 בינונית וגבוהה</option>
+          <option value="low">🔴 כל הרמות</option>
+        </select>
+        <button class="btn btn-outline" onclick="sendEmailDigest()" style="font-size:.85rem">📧 שלח דוח במייל</button>
+      </div>
     </div>
     <div id="scan-progress" class="hidden"></div>
-    <div id="scan-results"></div>`;
+    <div id="scan-results"></div>
+    ${S.scanDone && !S.scanResults.length ? `<div style="text-align:center;padding:2rem;color:var(--muted);font-size:.95rem">אין מכרזים חדשים — כל המכרזים באתר כבר נותחו.<br><span style="font-size:.82rem">בטל את "דלג על שנסרקו" כדי לנתח מחדש.</span></div>` : ''}`;
   if (S.scanResults.length) renderResultList('scan-results', S.scanResults, S.filter);
+}
+
+async function sendEmailDigest() {
+  const level = document.getElementById('email-level')?.value || 'medium';
+  const to = document.getElementById('email-to')?.value?.trim();
+  if (!to) { toast('יש להזין כתובת אימייל', 'error'); return; }
+  localStorage.setItem('emailTo', to);
+  const tenders = [...S.scanResults, ...S.history];
+  if (!tenders.length) { toast('אין מכרזים לשליחה', 'error'); return; }
+  toast('שולח מייל...', 'success');
+  try {
+    const res = await api('POST', '/api/send-email', { tenders, min_level: level, to });
+    if (res?.ok) toast(`✅ נשלח! ${res.count} מכרזים במייל`, 'success');
+    else { alert(`שגיאת מייל:\n${res?.msg || JSON.stringify(res)}`); toast('שגיאה בשליחת מייל', 'error'); }
+  } catch(e) {
+    toast(`שגיאה: ${e.message}`, 'error');
+  }
 }
 
 function startScan() {
@@ -599,21 +735,31 @@ function startScan() {
     } else if (d.type === 'complete') {
       evtSrc.close();
       S.scanRunning = false;
-      if (statusEl) statusEl.textContent = `✅ הסריקה הושלמה — ${d.count} מכרזים נותחו`;
+      S.scanDone = true;
       if (barEl) barEl.style.width = '100%';
-      renderScanFilterBar();
+      if (d.count === 0 && d.total === 0) {
+        toast('הסריקה הושלמה — לא נמצאו מכרזים חדשים באתר', 'success');
+      } else if (d.count === 0) {
+        toast(`נמצאו ${d.total} מכרזים — כולם כבר נותחו בעבר. בטל "דלג על מכרזים שנותחו" כדי לנתח מחדש.`, 'success');
+      } else {
+        toast(`✅ הסריקה הושלמה — ${d.count} מכרזים חדשים נותחו`, 'success');
+      }
+      GET('/api/history').then(h => { S.history = h || []; renderTenderApp(); renderScanFilterBar(); });
     } else if (d.type === 'error') {
       evtSrc.close();
       S.scanRunning = false;
-      if (prog) prog.innerHTML = `<div class="error">שגיאה: ${esc(d.msg)}</div>`;
+      toast(`שגיאת סריקה: ${d.msg}`, 'error');
+      if (prog) { prog.classList.remove('hidden'); prog.innerHTML = `<div class="error" style="white-space:pre-wrap;font-size:.8rem">${esc(d.msg)}</div>`; }
+      renderTenderApp();
     }
   };
 
-  evtSrc.onerror = () => {
+  evtSrc.onerror = (e) => {
+    if (!S.scanRunning) return;
     evtSrc.close();
     S.scanRunning = false;
-    const prog = document.getElementById('scan-progress');
-    if (prog) prog.innerHTML = `<div class="error">החיבור לשרת נותק</div>`;
+    toast('שגיאה: החיבור לשרת נותק — בדוק לוגים', 'error');
+    renderTenderApp();
   };
 }
 
@@ -661,6 +807,7 @@ function tenderCard(r, _filter, prefix) {
         <div class="card-title">${badgeHtml(rel)} &nbsp;${esc(r.title.substring(0,90))}${r.title.length>90?'...':''}</div>
         <div style="display:flex;align-items:center;gap:.5rem">
           <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${r.tender_id}')">${isFav?'⭐':'☆'}</button>
+          <button class="fav-btn" title="מחק מהיסטוריה" onclick="event.stopPropagation();deleteFromHistory('${r.tender_id}')">🗑️</button>
           <span class="card-chevron">▼</span>
         </div>
       </div>
@@ -675,7 +822,7 @@ function tenderCard(r, _filter, prefix) {
         <hr class="divider">
         ${r.analysis === 'NO_PDF'
           ? '<div class="info">לא נמצא PDF — הניתוח דולג.</div>'
-          : `<div class="analysis-text">${esc(r.analysis)}</div>`
+          : `<div class="analysis-text">${md(r.analysis)}</div>`
         }
         ${r.analysis !== 'NO_PDF' ? chatSection(r.tender_id, key) : ''}
       </div>
@@ -684,6 +831,15 @@ function tenderCard(r, _filter, prefix) {
 
 function toggleCard(id) {
   document.getElementById(id)?.classList.toggle('open');
+}
+
+async function deleteFromHistory(tid) {
+  if (!confirm('למחוק מכרז זה מהיסטוריה?')) return;
+  await api('DELETE', `/api/history/${tid}`);
+  S.history = S.history.filter(r => r.tender_id !== tid);
+  S.scanResults = S.scanResults.filter(r => r.tender_id !== tid);
+  S.favorites = S.favorites.filter(id => id !== tid);
+  renderTenderApp();
 }
 
 async function toggleFav(tid) {
@@ -751,10 +907,17 @@ function renderManualTab(el) {
   el.innerHTML = `
     <h3 style="font-size:1rem;margin-bottom:.5rem">ניתוח מכרז לפי קישור</h3>
     <p style="font-size:.83rem;color:var(--muted);margin-bottom:1rem">הדבק קישור למכרז מ-mr.gov.il וקבל ניתוח מיידי</p>
-    <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+    <div style="display:flex;gap:.5rem;margin-bottom:1.5rem">
       <input id="manual-url" style="flex:1;padding:.55rem .8rem;border:1px solid var(--border);border-radius:var(--radius);direction:ltr;font-size:.88rem" placeholder="https://mr.gov.il/...">
       <button class="btn btn-primary" onclick="runManualAnalyze()">🔍 נתח</button>
     </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:1.5rem">
+    <h3 style="font-size:1rem;margin-bottom:.5rem">ניתוח מכרז לפי קובץ PDF</h3>
+    <p style="font-size:.83rem;color:var(--muted);margin-bottom:1rem">העלה קובץ PDF של מכרז וקבל ניתוח מיידי</p>
+    <label class="btn btn-outline" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;margin-bottom:1rem">
+      📄 בחר קובץ PDF
+      <input type="file" accept=".pdf" style="display:none" onchange="runPdfAnalyze(this.files[0])">
+    </label>
     <div id="manual-result"></div>`;
   if (S.manualResult) renderManualResult();
 }
@@ -772,6 +935,23 @@ async function runManualAnalyze() {
     renderManualResult();
   } catch(e) {
     el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+async function runPdfAnalyze(file) {
+  if (!file) return;
+  const el = document.getElementById('manual-result');
+  el.innerHTML = `<div class="info">⏳ מנתח את הקובץ... (עד 90 שניות)</div>`;
+  const fd = new FormData();
+  fd.append('pdf', file);
+  try {
+    const r = await api('POST', '/api/analyze-pdf', fd, true);
+    if (!r) return;
+    S.manualResult = r;
+    S.manualChat = [];
+    renderManualResult();
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message || 'timeout או בעיה בשרת — נסה קובץ קטן יותר')}</div>`;
   }
 }
 
@@ -796,7 +976,155 @@ function renderFavoritesTab(el) {
   const favs = S.history.filter(r => S.favorites.includes(r.tender_id));
   if (!favs.length) { el.innerHTML = '<div class="info">לא הוספת מועדפים עדיין.</div>'; return; }
   el.innerHTML = `<div style="font-size:.85rem;color:var(--muted);margin-bottom:.8rem">${favs.length} מכרזים מועדפים</div>`;
-  favs.forEach(r => { el.innerHTML += tenderCard(r, 'all', 'fav'); });
+  favs.forEach(r => { el.innerHTML += tenderCard(r, 'all', 'fav') + favActions(r); });
+}
+
+function favActions(r) {
+  const tid = r.tender_id;
+  const hasQ = !!r.questions;
+  return `<div class="fav-actions" id="favact_${tid}" style="display:flex;gap:.5rem;flex-wrap:wrap;padding:.6rem 1rem;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);margin-bottom:.25rem">
+    <button class="btn btn-outline btn-sm" onclick="generateQuestions('${tid}')" id="genq_${tid}">❓ ${hasQ ? 'רענן שאלות הבהרה' : 'צור שאלות הבהרה'}</button>
+    <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.35rem">
+      📥 העלה תשובות הבהרה
+      <input type="file" accept=".txt,.pdf,.docx" style="display:none" onchange="reanalyzeWithAnswers('${tid}', this.files[0])">
+    </label>
+    <button class="btn btn-outline btn-sm" onclick="exportTenderExcel('${tid}')">📊 ייצא לאקסל</button>
+    <button class="btn btn-outline btn-sm" onclick="exportTenderWord('${tid}')">📝 ייצא לוורד</button>
+    ${hasQ ? `<button class="btn btn-outline btn-sm" onclick="exportQuestionsWord('${tid}')">📋 ייצא שאלות לוורד</button>` : ''}
+  </div>
+  ${hasQ ? `
+    <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);margin-bottom:1rem;overflow:hidden">
+      <button onclick="toggleQuestions('${tid}')" style="width:100%;background:var(--bg2);border:none;border-bottom:1px solid var(--border);padding:.5rem 1rem;cursor:pointer;font-size:.83rem;color:var(--muted);text-align:right;display:flex;justify-content:space-between;align-items:center">
+        <span id="qtoggle_icon_${tid}">${localStorage.getItem('qhidden_'+tid)==='1' ? '▼ הצג שאלות' : '▲ הסתר שאלות'}</span><span style="font-weight:600;color:var(--primary)">${r.questions.trim().split('\n').filter(l=>l.trim()).length} שאלות</span>
+      </button>
+      <div id="qtable_${tid}" style="padding:.75rem 1rem 1rem;direction:rtl;overflow-x:auto;${localStorage.getItem('qhidden_'+tid)==='1'?'display:none':''}">${renderQuestionsTable(r.questions)}</div>
+    </div>` : '<div style="margin-bottom:1rem"></div>'}`;
+}
+
+async function generateQuestions(tid) {
+  const r = S.history.find(x => x.tender_id === tid);
+  if (!r) return;
+  const btn = document.getElementById(`genq_${tid}`);
+  if (btn) btn.textContent = '⏳ מייצר שאלות...';
+  try {
+    const res = await POST('/api/tender/generate-questions', r);
+    if (!res) return;
+    const idx = S.history.findIndex(x => x.tender_id === tid);
+    if (idx >= 0) S.history[idx].questions = res.questions;
+    await api('PATCH', `/api/history/${tid}`, {questions: res.questions});
+    toast('✅ שאלות הבהרה נוצרו!');
+    renderTenderApp();
+  } catch(e) { toast(`שגיאה: ${e.message}`, 'error'); }
+}
+
+function toggleQuestions(tid) {
+  const table = document.getElementById(`qtable_${tid}`);
+  const icon  = document.getElementById(`qtoggle_icon_${tid}`);
+  if (!table) return;
+  const hidden = table.style.display === 'none';
+  table.style.display = hidden ? '' : 'none';
+  icon.textContent = hidden ? '▲ הסתר שאלות' : '▼ הצג שאלות';
+  localStorage.setItem(`qhidden_${tid}`, hidden ? '0' : '1');
+}
+
+function renderQuestionsTable(raw) {
+  const rows = [];
+  for (const line of raw.trim().split('\n')) {
+    const t = line.trim(); if (!t) continue;
+    const parts = t.split('|');
+    if (parts.length >= 4) {
+      rows.push([parts[0].trim(), parts[1].trim(), parts[2].trim(), parts.slice(3).join('|').trim()]);
+    } else {
+      rows.push([String(rows.length+1), 'כללי', 'כללי', t.replace(/^\d+\.\s*/,'')]);
+    }
+  }
+  if (!rows.length) return `<pre style="font-size:.83rem">${esc(raw)}</pre>`;
+  return `<table class="rec-table" style="width:100%;font-size:.82rem">
+    <thead><tr>
+      <th style="width:3rem;text-align:center">מספר</th>
+      <th style="width:5rem;text-align:center">עמוד</th>
+      <th style="width:6rem;text-align:center">סעיף</th>
+      <th>שאלה</th>
+    </tr></thead>
+    <tbody>${rows.map(([n,pg,sec,q],i)=>`
+      <tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'}">
+        <td style="text-align:center">${esc(n)}</td>
+        <td style="text-align:center">${esc(pg)}</td>
+        <td style="text-align:center">${esc(sec)}</td>
+        <td>${esc(q)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+async function exportQuestionsWord(tid) {
+  const r = S.history.find(x => x.tender_id === tid);
+  if (!r?.questions) return;
+  try {
+    const resp = await fetch('/api/tender/export-questions-word', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(r)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `שאלות_${tid}.docx`;
+    a.click();
+  } catch(e) { toast(`שגיאה: ${e.message}`, 'error'); }
+}
+
+async function reanalyzeWithAnswers(tid, file) {
+  if (!file) return;
+  const r = S.history.find(x => x.tender_id === tid);
+  if (!r) return;
+  const el = document.getElementById(`card_fav_${tid}`);
+  if (el) el.querySelector('.analysis-text') && (el.querySelector('.analysis-text').textContent = '⏳ מנתח מחדש עם תשובות הבהרה...');
+  const fd = new FormData();
+  fd.append('answers', file);
+  fd.append('tender_data', JSON.stringify(r));
+  try {
+    const res = await api('POST', '/api/tender/reanalyze-with-answers', fd, true);
+    if (!res) return;
+    const idx = S.history.findIndex(x => x.tender_id === tid);
+    if (idx >= 0) S.history[idx] = {...S.history[idx], ...res};
+    toast('✅ ניתוח מחדש הושלם!');
+    renderTenderApp();
+  } catch(e) { toast(`שגיאה: ${e.message}`, 'error'); }
+}
+
+async function exportTenderExcel(tid) {
+  const r = S.history.find(x => x.tender_id === tid);
+  if (!r) return;
+  try {
+    const resp = await fetch('/api/tender/export-excel', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(r)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `ניתוח_${tid}.xlsx`;
+    a.click();
+  } catch(e) { toast(`שגיאה: ${e.message}`, 'error'); }
+}
+
+async function exportTenderWord(tid) {
+  const r = S.history.find(x => x.tender_id === tid);
+  if (!r) return;
+  try {
+    const resp = await fetch('/api/tender/export-word', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(r)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `ניתוח_${tid}.docx`;
+    a.click();
+  } catch(e) { toast(`שגיאה: ${e.message}`, 'error'); }
 }
 
 // ── Learning tab ──────────────────────────
@@ -948,21 +1276,514 @@ async function saveSettings() {
 }
 
 // ══════════════════════════════════════════
+// RECRUITER ANALYSIS
+// ══════════════════════════════════════════
+
+function svgBars(items, opts={}) {
+  const {color='#2563eb', unit='', h=170} = opts;
+  if (!items.length) return '<div style="color:var(--muted);font-size:.82rem;padding:.5rem 0">אין נתונים</div>';
+  const W=600, H=h, pT=10, pR=8, pB=items.length>12?46:34, pL=8;
+  const cW=W-pL-pR, cH=H-pT-pB;
+  const maxV=Math.max(...items.map(d=>d.v), 0.001);
+  const slot=cW/items.length, bW=Math.max(slot*0.65,2);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible">`;
+  svg+=`<line x1="${pL}" y1="${pT}" x2="${pL}" y2="${pT+cH}" stroke="#e4e7ec" stroke-width="1"/>`;
+  svg+=`<line x1="${pL}" y1="${pT+cH}" x2="${W-pR}" y2="${pT+cH}" stroke="#e4e7ec" stroke-width="1"/>`;
+  items.forEach((d,i)=>{
+    const x=pL+i*slot+slot*0.175;
+    const barH=Math.max((d.v/maxV)*cH,0);
+    const y=pT+cH-barH;
+    const c=d.color||color;
+    svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" rx="3" opacity=".88"/>`;
+    if(d.v>0){
+      const vLabel=Number.isInteger(d.v)?d.v:d.v.toFixed(1);
+      svg+=`<text x="${(x+bW/2).toFixed(1)}" y="${(y-4).toFixed(1)}" text-anchor="middle" font-size="9" fill="#374151">${vLabel}${unit}</text>`;
+    }
+    const lbl=String(d.l);
+    if(items.length>12){
+      const lx=(x+bW/2).toFixed(1), ly=(pT+cH+12).toFixed(1);
+      svg+=`<text x="${lx}" y="${ly}" text-anchor="end" font-size="8.5" fill="#6b7280" transform="rotate(-45,${lx},${ly})">${esc(lbl)}</text>`;
+    } else {
+      svg+=`<text x="${(x+bW/2).toFixed(1)}" y="${(pT+cH+14).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#6b7280">${esc(lbl)}</text>`;
+    }
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+function renderRecruiterList() {
+  const el=document.getElementById('sb-recruiters');
+  if(!el) return;
+  el.innerHTML=S.recruiterRecruiters.map(({name,extension},i)=>`
+    <div class="alias-row">
+      <input placeholder="שם" value="${esc(name)}" oninput="S.recruiterRecruiters[${i}].name=this.value" style="flex:2">
+      <input placeholder="שלוחה" value="${esc(extension)}" oninput="S.recruiterRecruiters[${i}].extension=this.value" style="flex:1;text-align:center" dir="ltr">
+      <button class="alias-del" onclick="S.recruiterRecruiters.splice(${i},1);renderRecruiterList()">✕</button>
+    </div>`).join('');
+}
+function addRecruiter(){ S.recruiterRecruiters.push({name:'',extension:''}); renderRecruiterList(); }
+
+async function saveRecruiterSettings(){
+  S.recruiterCfg.long_call_threshold_minutes=parseInt(document.getElementById('sb-rec-long').value)||8;
+  S.recruiterCfg.repeat_call_threshold=parseInt(document.getElementById('sb-rec-repeat').value)||2;
+  await POST('/api/recruiter/config', S.recruiterCfg);
+  toast('הגדרות נשמרו!');
+}
+
+async function saveRecruiters(){
+  S.recruiterCfg.recruiters=S.recruiterRecruiters.filter(r=>r.name.trim()&&r.extension.trim());
+  await POST('/api/recruiter/config', S.recruiterCfg);
+  toast('מגייסים נשמרו!');
+  if(S.recruiterData) renderRecruiterApp();
+}
+
+async function uploadRecruiterFile(file){
+  if(!file) return;
+  const fd=new FormData();
+  fd.append('excel', file);
+  try{
+    const res=await api('POST','/api/recruiter/upload',fd,true);
+    if(!res) return;
+    toast(`✅ הועלו ${res.total_calls} שיחות!`);
+    const today = new Date();
+    const week  = new Date(today); week.setDate(today.getDate() - 6);
+    S.recruiterDateFrom = week.toISOString().slice(0,10);
+    S.recruiterDateTo   = today.toISOString().slice(0,10);
+    localStorage.setItem('recruiterDateFrom', S.recruiterDateFrom);
+    localStorage.setItem('recruiterDateTo',   S.recruiterDateTo);
+    await loadRecruiterData();
+  }catch(e){ toast(`שגיאה: ${e.message}`,'error'); }
+}
+
+async function loadRecruiterData(){
+  try{
+    const params = new URLSearchParams();
+    if(S.recruiterDateFrom) params.set('date_from', S.recruiterDateFrom);
+    if(S.recruiterDateTo)   params.set('date_to',   S.recruiterDateTo);
+    S.recruiterData=await GET(`/api/recruiter/data?${params}`);
+    if(S.recruiterData?.full_range && !S.recruiterDateFrom){
+      S.recruiterDateFrom=S.recruiterData.full_range.from;
+      S.recruiterDateTo=S.recruiterData.full_range.to;
+    }
+    if(S.recruiterData?.recruiters?.length && !S.recruiterSelected)
+      S.recruiterSelected=S.recruiterData.recruiters[0].extension;
+    renderRecruiterApp();
+  }catch(e){ toast(`שגיאה בטעינת נתונים: ${e.message}`,'error'); }
+}
+
+function applyRecruiterDates(){
+  const f=document.getElementById('rec-date-from')?.value;
+  const t=document.getElementById('rec-date-to')?.value;
+  if(f){ S.recruiterDateFrom=f; localStorage.setItem('recruiterDateFrom',f); }
+  if(t){ S.recruiterDateTo=t;   localStorage.setItem('recruiterDateTo',t); }
+  loadRecruiterData();
+}
+
+function renderRecruiterApp(){
+  const el=document.getElementById('recruiter-app');
+  const d=S.recruiterData;
+  const lastUpdated=d?.last_updated
+    ? `עודכן: ${new Date(d.last_updated).toLocaleString('he-IL')}`
+    : 'לא הועלו נתונים';
+
+  el.innerHTML=`
+    <div class="page-eyebrow">Electra Target Tools</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem">
+      <div class="page-title" style="margin-bottom:0">👥 ניתוח מגייסים</div>
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+        <span style="font-size:.78rem;color:var(--muted)">${lastUpdated}</span>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.35rem">
+          📂 העלה קובץ
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadRecruiterFile(this.files[0])">
+        </label>
+      </div>
+    </div>
+    ${!d ? '<div class="info">העלה קובץ עם נתוני השיחות כדי להתחיל.</div>' : !d.recruiters?.length ? '<div class="info" style="text-align:center;padding:2rem">📅 אין נתונים לתאריכים שנבחרו — בחר טווח תאריכים אחר.</div>' : `
+      ${d.full_range ? `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1rem;font-size:.83rem">
+        <div style="color:var(--muted);margin-bottom:.5rem">📅 טווח הנתונים שהועלו: <b>${d.full_range.from.slice(8)}/${d.full_range.from.slice(5,7)}/${d.full_range.from.slice(0,4)}</b> עד <b>${d.full_range.to.slice(8)}/${d.full_range.to.slice(5,7)}/${d.full_range.to.slice(0,4)}</b></div>
+        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+          <label style="color:var(--muted);font-size:.82rem">סנן מ:</label>
+          <input type="date" id="rec-date-from" value="${S.recruiterDateFrom||d.full_range.from}"
+            min="${d.full_range.from}" max="${d.full_range.to}"
+            style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          <label style="color:var(--muted);font-size:.82rem">עד:</label>
+          <input type="date" id="rec-date-to" value="${S.recruiterDateTo||d.full_range.to}"
+            min="${d.full_range.from}" max="${d.full_range.to}"
+            style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          <button class="btn btn-primary btn-sm" onclick="applyRecruiterDates()">החל</button>
+        </div>
+      </div>` : ''}
+      <div class="tabs" style="margin-bottom:1.2rem">
+        <div class="tab${S.recruiterTab==='single'?' active':''}" onclick="S.recruiterTab='single';renderRecruiterMain()">👤 תצוגת מגייס</div>
+        <div class="tab${S.recruiterTab==='overview'?' active':''}" onclick="S.recruiterTab='overview';renderRecruiterMain()">📊 מבט על</div>
+      </div>
+      <div id="recruiter-main"></div>
+    `}`;
+
+  if(d?.recruiters?.length) renderRecruiterMain();
+}
+
+function renderRecruiterMain(){
+  const el=document.getElementById('recruiter-main');
+  if(!el) return;
+  document.querySelectorAll('#recruiter-app .tabs .tab').forEach(t=>{
+    const isSingle=t.textContent.includes('תצוגת מגייס');
+    t.classList.toggle('active', isSingle ? S.recruiterTab==='single' : S.recruiterTab==='overview');
+  });
+  if(S.recruiterTab==='single') renderRecruiterSingle(el);
+  else renderRecruiterOverview(el);
+}
+
+function renderRecruiterSingle(el){
+  const d=S.recruiterData;
+  if(!d?.recruiters?.length){ el.innerHTML='<div class="info">אין נתוני מגייסים לתקופה זו.</div>'; return; }
+
+  const rec=d.recruiters.find(r=>r.extension===S.recruiterSelected)||d.recruiters[0];
+  S.recruiterSelected=rec.extension;
+
+  const options=d.recruiters.map(r=>
+    `<option value="${esc(r.extension)}" ${r.extension===S.recruiterSelected?'selected':''}>${esc(r.name)} (${esc(r.extension)})</option>`
+  ).join('');
+
+  const stats=[
+    {label:'סה"כ שיחות', val:rec.total_calls, color:'var(--primary)'},
+    {label:'שיחות שנענו', val:`${rec.answered_calls} (${rec.answer_rate}%)`, color:'var(--green)'},
+    {label:'סה"כ דקות שיחה', val:rec.total_minutes, color:'var(--accent)'},
+    {label:'ממוצע שיחות ליום', val:rec.avg_calls_per_day, color:'#7c3aed'},
+    {label:'ממוצע דקות לשיחה', val:rec.avg_duration_minutes, color:'#0891b2'},
+    {label:'ימי עבודה', val:rec.work_days, color:'#b45309'},
+  ];
+
+  const hourlyItems=[];
+  for(let h=8;h<=17;h++) hourlyItems.push({l:`${h}:00`, v:rec.hourly_distribution[String(h)]||0});
+
+  const allDates=d.all_dates||[];
+  const fmtDate=dt=>`${dt.slice(8)}/${dt.slice(5,7)}`;
+  const dailyCallItems=allDates.map(dt=>({l:fmtDate(dt), v:rec.daily_calls[dt]||0}));
+  const dailyMinItems=allDates.map(dt=>({l:fmtDate(dt), v:rec.daily_minutes[dt]||0}));
+
+  const longThr=S.recruiterCfg?.long_call_threshold_minutes||8;
+  const repThr=S.recruiterCfg?.repeat_call_threshold||2;
+
+  const longCallsHtml=rec.long_calls.length?`
+    <div style="overflow-y:auto;max-height:220px">
+    <table class="rec-table"><thead><tr>
+      <th>תאריך</th><th>שעה</th><th>מספר</th><th>דקות</th>
+    </tr></thead><tbody>
+    ${rec.long_calls.slice(0,30).map(c=>`<tr>
+      <td>${esc(c.date)}</td><td>${esc(c.time)}</td>
+      <td dir="ltr">${esc(c.dst)}</td>
+      <td style="font-weight:600;color:var(--orange)">${c.minutes}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`
+  :'<div class="info" style="font-size:.82rem">אין שיחות ארוכות בתקופה זו.</div>';
+
+  const repeatHtml=rec.repeat_numbers.length?`
+    <div style="overflow-y:auto;max-height:220px">
+    <table class="rec-table"><thead><tr>
+      <th>מספר טלפון</th><th>מספר שיחות</th>
+    </tr></thead><tbody>
+    ${rec.repeat_numbers.map(r=>`<tr>
+      <td dir="ltr">${esc(r.number)}</td>
+      <td style="font-weight:600;color:var(--accent)">${r.count}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`
+  :'<div class="info" style="font-size:.82rem">אין מספרים חוזרים בתקופה זו.</div>';
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.2rem;flex-wrap:wrap">
+      <label style="font-size:.85rem;font-weight:600;color:var(--muted)">בחר מגייס:</label>
+      <select style="padding:.45rem .75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:.88rem"
+        onchange="S.recruiterSelected=this.value;renderRecruiterMain()">${options}</select>
+      ${rec.first_call?`<span style="font-size:.8rem;color:var(--muted);margin-right:auto">⏰ ראשונה: <b>${esc(rec.first_call)}</b> &nbsp;|&nbsp; אחרונה: <b>${esc(rec.last_call)}</b></span>`:''}
+    </div>
+
+    <div class="rec-stats-grid">
+      ${stats.map(s=>`<div class="rec-stat-card">
+        <div class="rec-stat-val" style="color:${s.color}">${esc(String(s.val))}</div>
+        <div class="rec-stat-lbl">${s.label}</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="rec-chart-grid">
+      <div class="rec-chart-card">
+        <div class="rec-chart-title">התפלגות שעתית — דקות שיחה</div>
+        ${svgBars(hourlyItems,{color:'#2563eb'})}
+      </div>
+      <div class="rec-chart-card">
+        <div class="rec-chart-title">שיחות לפי יום</div>
+        ${svgBars(dailyCallItems,{color:'#7c3aed',h:170})}
+      </div>
+    </div>
+    <div class="rec-chart-card" style="margin-bottom:1.2rem">
+      <div class="rec-chart-title">דקות שיחה לפי יום</div>
+      ${svgBars(dailyMinItems,{color:'#0891b2',h:160})}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+      <div>
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:.6rem">📞 שיחות ארוכות (מעל ${longThr} דקות)</div>
+        ${longCallsHtml}
+      </div>
+      <div>
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:.6rem">🔁 מספרים חוזרים (מעל ${repThr} שיחות)</div>
+        ${repeatHtml}
+      </div>
+    </div>`;
+}
+
+function renderRecruiterOverview(el){
+  const d=S.recruiterData;
+  if(!d?.recruiters?.length){ el.innerHTML='<div class="info">אין נתוני מגייסים לתקופה זו.</div>'; return; }
+
+  if(!S.overviewSort) S.overviewSort={key:'total_calls',asc:false};
+  const {key,asc}=S.overviewSort;
+
+  const recs=[...d.recruiters].sort((a,b)=>{
+    const av=key==='name'?a.name:a[key], bv=key==='name'?b.name:b[key];
+    if(typeof av==='string') return asc?av.localeCompare(bv):bv.localeCompare(av);
+    return asc?av-bv:bv-av;
+  });
+
+  const arrow=k=>k===key?(asc?' ▲':' ▼'):'';
+  const th=(label,k)=>`<th style="text-align:${k==='name'?'right':'center'};cursor:pointer;user-select:none;white-space:nowrap"
+    onclick="S.overviewSort=S.overviewSort?.key==='${k}'?{key:'${k}',asc:!S.overviewSort.asc}:{key:'${k}',asc:false};renderRecruiterMain()"
+    >${label}${arrow(k)}</th>`;
+
+  const callsItems=recs.map(r=>({l:r.name, v:r.total_calls}));
+  const ansItems=recs.map(r=>({l:r.name, v:r.answer_rate}));
+  const minItems=recs.map(r=>({l:r.name, v:r.total_minutes, color:'#0891b2'}));
+  const avgItems=recs.map(r=>({l:r.name, v:r.avg_calls_per_day, color:'#7c3aed'}));
+
+  el.innerHTML=`
+    <div style="overflow-x:auto;margin-bottom:1.5rem">
+      <table class="rec-table" style="min-width:620px">
+        <thead><tr>
+          ${th('מגייס','name')}${th('סה"כ שיחות','total_calls')}${th('שנענו','answered_calls')}
+          ${th('% מענה','answer_rate')}${th('דקות שיחה','total_minutes')}
+          ${th('ממוצע/יום','avg_calls_per_day')}${th('דקות לשיחה','avg_duration_minutes')}
+          ${th('ימי עבודה','work_days')}
+        </tr></thead>
+        <tbody>${recs.map(r=>`
+          <tr style="cursor:pointer" onclick="S.recruiterSelected='${esc(r.extension)}';S.recruiterTab='single';renderRecruiterMain()">
+            <td style="font-weight:600">${esc(r.name)}</td>
+            <td style="text-align:center">${r.total_calls}</td>
+            <td style="text-align:center">${r.answered_calls}</td>
+            <td style="text-align:center;font-weight:600;color:${r.answer_rate>=70?'var(--green)':r.answer_rate>=50?'var(--yellow)':'var(--red)'}">${r.answer_rate}%</td>
+            <td style="text-align:center">${r.total_minutes}</td>
+            <td style="text-align:center">${r.avg_calls_per_day}</td>
+            <td style="text-align:center">${r.avg_duration_minutes}</td>
+            <td style="text-align:center">${r.work_days}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="rec-chart-grid">
+      <div class="rec-chart-card">
+        <div class="rec-chart-title">השוואת שיחות כוללות</div>
+        ${svgBars(callsItems,{color:'#2563eb'})}
+      </div>
+      <div class="rec-chart-card">
+        <div class="rec-chart-title">% מענה לשיחה</div>
+        ${svgBars(ansItems,{unit:'%'})}
+      </div>
+    </div>
+    <div class="rec-chart-grid">
+      <div class="rec-chart-card">
+        <div class="rec-chart-title">דקות שיחה כוללות</div>
+        ${svgBars(minItems,{color:'#0891b2'})}
+      </div>
+      <div class="rec-chart-card">
+        <div class="rec-chart-title">ממוצע שיחות ליום</div>
+        ${svgBars(avgItems,{color:'#7c3aed'})}
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
 // SHIFT COMPARISON
 // ══════════════════════════════════════════
 let _shiftsFile = null;
+let _gmailToken = null;
+let _excelSource = 'gmail'; // 'upload' or 'gmail'
+let _shiftsTab = 'compare'; // 'compare' | 'saved'
+let _savedSort = { col: 'date', dir: 1 }; // dir: 1=asc, -1=desc
+
+function toggleExcelSource(isGmail) {
+  _excelSource = isGmail ? 'gmail' : 'upload';
+  document.getElementById('toggle-track').style.background = isGmail ? 'var(--accent)' : '#ccc';
+  document.getElementById('toggle-thumb').style.left = isGmail ? '18px' : '2px';
+}
+
+function switchShiftsTab(tab) {
+  _shiftsTab = tab;
+  renderShiftsApp();
+  if (tab === 'saved') loadSavedShifts();
+}
 
 function renderShiftsApp() {
   const el = document.getElementById('shifts-content');
-  el.innerHTML = `
+  const tabBar = `
+    <div class="tabs" style="margin-bottom:1.2rem">
+      <div class="tab ${_shiftsTab==='compare'?'active':''}" onclick="switchShiftsTab('compare')">⚡ השוואה</div>
+      <div class="tab ${_shiftsTab==='saved'?'active':''}" onclick="switchShiftsTab('saved')">📋 שעות עובדים</div>
+      <div class="tab ${_shiftsTab==='sales'?'active':''}" onclick="switchShiftsTab('sales')">💰 מכירות</div>
+      <div class="tab ${_shiftsTab==='workers'?'active':''}" onclick="switchShiftsTab('workers')">👷 עובדים</div>
+      <div class="tab ${_shiftsTab==='branches'?'active':''}" onclick="switchShiftsTab('branches')">🏬 סניפים</div>
+      <div class="tab ${_shiftsTab==='report'?'active':''}" onclick="switchShiftsTab('report')">📊 דוח מלא</div>
+      <div class="tab ${_shiftsTab==='branchreport'?'active':''}" onclick="switchShiftsTab('branchreport')">🏢 דוח סניפים</div>
+      <div class="tab ${_shiftsTab==='holidays'?'active':''}" onclick="switchShiftsTab('holidays')">🗓️ חגים</div>
+    </div>`;
+
+  if (_shiftsTab === 'saved') {
+    el.innerHTML = tabBar + `
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem">
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">
+          ⬆️ ייבוא מאקסל
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="uploadSavedShiftsExcel(this)">
+        </label>
+        <span id="saved-upload-status" style="font-size:.78rem"></span>
+      </div>
+      <div id="saved-shifts-content"><div class="info">טוען...</div></div>`;
+    loadSavedShifts();
+    return;
+  }
+
+  if (_shiftsTab === 'workers') {
+    el.innerHTML = tabBar + `<div id="workers-content"><div class="info">טוען...</div></div>`;
+    loadWorkers();
+    return;
+  }
+
+  if (_shiftsTab === 'branches') {
+    el.innerHTML = tabBar + `<div id="branches-content"><div class="info">טוען...</div></div>`;
+    loadBranches();
+    return;
+  }
+
+  if (_shiftsTab === 'branchreport') {
+    el.innerHTML = tabBar + `
+      <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
+        <label style="font-weight:600;font-size:.9rem">📅 תאריך</label>
+        <input type="date" id="branch-report-date-picker" class="sb-input" style="width:auto"
+               onchange="onBranchReportDateChange(this.value)">
+      </div>
+      <div id="branch-report-content"><div class="info">טוען...</div></div>`;
+    setTimeout(initBranchReportTab, 0);
+    return;
+  }
+
+  if (_shiftsTab === 'sales') {
+    el.innerHTML = tabBar + `
+      <p style="font-size:.83rem;color:var(--muted);margin-bottom:1.2rem">העלה קובץ מכירות לניתוח ביצועי עובדים</p>
+      <div style="max-width:480px;margin-bottom:1.2rem">
+        <div class="upload-area" id="sales-upload-area"
+             onclick="document.getElementById('sales-file').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleSalesDrop(event)">
+          <input type="file" id="sales-file" accept=".xlsx,.xls" onchange="uploadSalesFile(this.files[0])" style="display:none">
+          <div style="font-size:1.8rem">📂</div>
+          <span class="upload-label">לחץ או גרור קובץ Excel מכירות</span>
+          <div id="sales-file-status" style="font-size:.8rem;color:var(--accent);margin-top:.3rem"></div>
+        </div>
+      </div>
+      <div style="max-width:480px;margin-bottom:1.2rem">
+        <div style="font-size:.83rem;font-weight:600;margin-bottom:.4rem">דוח ארנוקים</div>
+        <div class="upload-area" id="arnakot-upload-area"
+             onclick="document.getElementById('arnakot-file').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleArnakotDrop(event)">
+          <input type="file" id="arnakot-file" accept=".xlsx,.xls" onchange="uploadArnakotFile(this.files[0])" style="display:none">
+          <div style="font-size:1.8rem">👜</div>
+          <span class="upload-label">לחץ או גרור קובץ דוח ארנוקים</span>
+          <div id="arnakot-file-status" style="font-size:.8rem;color:var(--accent);margin-top:.3rem"></div>
+        </div>
+        <div id="arnakot-unmatched" style="display:none;margin-top:.5rem;padding:.5rem .75rem;background:var(--warn-bg,#fff3cd);border:1px solid #ffc107;border-radius:6px;font-size:.8rem"></div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-bottom:.6rem;border-bottom:1px solid var(--border);padding-bottom:0">
+        <button id="preview-tab-sales" onclick="switchPreviewTab('sales')"
+          style="padding:.3rem .9rem;border:none;background:none;cursor:pointer;font-size:.82rem;border-bottom:2px solid var(--accent);color:var(--accent);font-weight:600">
+          פירוט מכירות
+        </button>
+        <button id="preview-tab-arnakot" onclick="switchPreviewTab('arnakot')"
+          style="padding:.3rem .9rem;border:none;background:none;cursor:pointer;font-size:.82rem;border-bottom:2px solid transparent;color:var(--muted)">
+          ארנוקים
+        </button>
+      </div>
+      <div id="sales-table-wrap"><div class="info">טוען...</div></div>
+      <div id="arnakot-table-wrap" style="display:none"><div class="info">טוען...</div></div>`;
+    setTimeout(() => { loadSales(); loadArnakot(); }, 0);
+    return;
+  }
+
+  if (_shiftsTab === 'holidays') {
+    const curYear = new Date().getFullYear();
+    el.innerHTML = tabBar + `
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
+        <select id="hol-year" class="sb-input" style="width:auto" onchange="loadHolidaysTab()">
+          ${[curYear-1, curYear, curYear+1].map(y=>`<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="loadHolidaysTab(true)">🔄 טען מחדש מהמקור</button>
+        <button class="btn btn-outline btn-sm" onclick="addHolidayRow()">➕ הוסף שורה</button>
+        <button class="btn btn-sm" onclick="saveHolidaysTab()">💾 שמור</button>
+      </div>
+      <div id="hol-content"><div class="info">טוען...</div></div>`;
+    setTimeout(loadHolidaysTab, 0);
+    return;
+  }
+
+  if (_shiftsTab === 'report') {
+    el.innerHTML = tabBar + `
+      <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
+        <select id="report-month-select" class="sb-input" style="width:auto;min-width:140px" onchange="onReportMonthChange(this.value)">
+          <option value="">טוען חודשים...</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="exportReport()">⬇️ ייצוא לאקסל</button>
+        <button class="btn btn-outline btn-sm" onclick="exportReportPDF()">📄 ייצוא ל-PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleColorsPanel()">🎨 צבעים</button>
+      </div>
+      <div id="colors-panel" style="display:none;margin-bottom:1rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"></div>
+      <div id="report-content"><div class="info">טוען...</div></div>
+      <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
+        <label style="font-weight:600;font-size:.9rem">📅 דוח יומי</label>
+        <input type="date" id="daily-date-picker" class="sb-input" style="width:auto"
+               onchange="onDailyDateChange(this.value)">
+      </div>
+      <div id="daily-report-content"></div>`;
+    setTimeout(initReportTab, 0);
+    return;
+  }
+
+  el.innerHTML = tabBar + `
     <p style="font-size:.83rem;color:var(--muted);margin-bottom:1.2rem">הדבק הודעת וואטסאפ ועלה קובץ אקסל להשוואת משמרות</p>
+    <div id="gmail-bar" style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+      <span style="font-size:.85rem;font-weight:600">📧 Gmail</span>
+      <span id="gmail-status-text" style="font-size:.82rem;color:var(--muted)">לא מחובר</span>
+      <button class="btn btn-outline" style="font-size:.8rem;padding:.25rem .7rem" onclick="connectGmail()">🔗 התחבר ל-Gmail</button>
+      <input type="date" id="gmail-date" style="padding:.25rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);display:none">
+      <button class="btn btn-primary" style="font-size:.8rem;padding:.25rem .7rem;display:none" id="fetch-gmail-btn" onclick="fetchFromGmail()">📥 משוך קובץ ממייל</button>
+    </div>
     <div class="shifts-grid">
       <div>
         <div style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">📱 הודעת וואטסאפ</div>
         <textarea id="sh-msg" placeholder="הדבק כאן את הודעת הוואטסאפ..."></textarea>
       </div>
       <div>
-        <div style="font-size:.82rem;font-weight:600;margin-bottom:.4rem">📂 קובץ אקסל</div>
+        <div style="font-size:.82rem;font-weight:600;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem">
+          📂 קובץ אקסל
+          <div style="display:flex;align-items:center;gap:.35rem;font-weight:400;font-size:.78rem;color:var(--muted)">
+            <span>ממייל</span>
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer">
+              <input type="checkbox" id="excel-source-toggle" onchange="toggleExcelSource(this.checked)" checked style="opacity:0;width:0;height:0">
+              <span style="position:absolute;inset:0;background:var(--accent);border-radius:20px;transition:.2s" id="toggle-track"></span>
+              <span style="position:absolute;left:18px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)" id="toggle-thumb"></span>
+            </label>
+            <span>קובץ מועלה</span>
+          </div>
+        </div>
         <div class="upload-area" id="upload-area" onclick="document.getElementById('sh-file').click()"
              ondragover="event.preventDefault();this.classList.add('drag')"
              ondragleave="this.classList.remove('drag')"
@@ -978,11 +1799,1595 @@ function renderShiftsApp() {
     <div id="shifts-result"></div>`;
 
   if (S.shiftsResult) renderShiftsResult();
+  checkGmailStatus();
+}
+
+async function checkGmailStatus() {
+  const res = await GET('/auth/gmail/status');
+  if (res?.connected) {
+    document.getElementById('gmail-status-text').textContent = '✅ מחובר';
+    document.getElementById('gmail-status-text').style.color = 'var(--success)';
+    const dateEl = document.getElementById('gmail-date');
+    dateEl.style.display = '';
+    if (!dateEl.value) {
+      // Default to yesterday — the daily flow fetches yesterday's hours file
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      dateEl.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    document.getElementById('fetch-gmail-btn').style.display = '';
+  }
+}
+
+function connectGmail() {
+  const w = window.open('/auth/gmail/connect', 'gmail_oauth', 'width=500,height=600');
+  window.addEventListener('message', async (e) => {
+    if (e.data === 'gmail_connected') {
+      w?.close();
+      await checkGmailStatus();
+      toast('Gmail מחובר בהצלחה!', 'success');
+    }
+  }, { once: true });
+}
+
+function editCompareRow(i) {
+  const row = S.shiftsResult[i];
+  const STATUS_LABEL = {ok:'✅ תקין', gap:'⚠️ פער', missing_msg:'🟠 חסר בהודעה', missing_excel:'🔴 חסר באקסל'};
+  const STATUS_BG = {ok:'var(--green-bg)', gap:'var(--yellow-bg)', missing_msg:'var(--orange-bg)', missing_excel:'var(--red-bg)'};
+  const el = document.getElementById('cmp-row-' + i);
+  const inp = (field, val, w='90px') =>
+    `<input value="${esc(val||'')}" data-field="${field}" style="width:${w};padding:.2rem .3rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
+  el.innerHTML = `
+    <select data-field="status" style="font-size:.8rem;padding:.2rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text)">
+      <option value="ok">✅ תקין</option><option value="gap">⚠️ פער</option>
+      <option value="missing_msg">🟠 חסר בהודעה</option><option value="missing_excel">🔴 חסר באקסל</option>
+    </select>
+    ${inp('worker_name', row.worker_name, '110px')}
+    ${inp('workplace', row.workplace, '90px')}
+    ${inp('date', row.date, '75px')}
+    ${inp('start_time', row.start_time, '55px')}
+    ${inp('end_time', row.end_time, '55px')}
+    ${inp('notes', row.notes, '120px')}
+    <span style="margin-right:auto;display:flex;gap:.3rem">
+      <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="saveCompareRow(${i})">שמור</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="renderShiftsResult()">ביטול</button>
+    </span>`;
+  el.querySelector('select[data-field="status"]').value = row.status || 'ok';
+}
+
+function saveCompareRow(i) {
+  const el = document.getElementById('cmp-row-' + i);
+  const updated = { ...S.shiftsResult[i] };
+  el.querySelectorAll('[data-field]').forEach(inp => { updated[inp.dataset.field] = inp.value; });
+  S.shiftsResult[i] = updated;
+  renderShiftsResult();
+}
+
+function deleteCompareRow(i) {
+  S.shiftsResult.splice(i, 1);
+  renderShiftsResult();
+}
+
+let _lastCbIndex = null;
+
+function handleCbClick(e, cb) {
+  const allCbs = Array.from(document.querySelectorAll('.saved-cb'));
+  const idx = allCbs.indexOf(cb);
+  if (e.shiftKey && _lastCbIndex !== null) {
+    const from = Math.min(_lastCbIndex, idx);
+    const to   = Math.max(_lastCbIndex, idx);
+    const state = cb.checked;
+    allCbs.slice(from, to + 1).forEach(c => c.checked = state);
+  }
+  _lastCbIndex = idx;
+  updateBulkDeleteBtn();
+}
+
+function toggleAllCb(checked) {
+  document.querySelectorAll('.saved-cb').forEach(c => c.checked = checked);
+  _lastCbIndex = null;
+  updateBulkDeleteBtn();
+}
+
+function updateBulkDeleteBtn() {
+  const any = document.querySelector('.saved-cb:checked');
+  const btn = document.getElementById('bulk-delete-btn');
+  if (btn) btn.style.display = any ? '' : 'none';
+}
+
+async function bulkDeleteSaved() {
+  const ids = Array.from(document.querySelectorAll('.saved-cb:checked')).map(c => c.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`למחוק ${ids.length} שורות?`)) return;
+  await Promise.all(ids.map(id => api('DELETE', `/api/shifts/saved/${id}`)));
+  await loadSavedShifts();
+}
+
+async function saveComparison() {
+  if (!S.shiftsResult?.length) return;
+  const res = await api('POST', '/api/shifts/saved', S.shiftsResult);
+  if (res?.ok) toast(`✅ נשמרו ${res.saved} שורות`, 'success');
+}
+
+async function uploadSavedShiftsExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const st = document.getElementById('saved-upload-status');
+  const set = (msg, color='var(--muted)') => { if (st) { st.textContent = msg; st.style.color = color; } };
+  set('⏳ מעלה...');
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await api('POST', '/api/shifts/saved/upload', fd, true);
+    if (res?.ok) {
+      set(`✅ ${res.count} שורות יובאו`, 'var(--green)');
+      await loadSavedShifts();
+    }
+  } catch(e) {
+    set(`❌ ${e.message}`, 'var(--red)');
+  }
+  input.value = '';
+}
+
+async function loadSavedShifts() {
+  const dateFilter = document.getElementById('saved-date-filter')?.value || '';
+  const nameFilter = document.getElementById('saved-name-filter')?.value || '';
+  let url = '/api/shifts/saved';
+  const params = [];
+  if (dateFilter) params.push(`date=${encodeURIComponent(dateFilter)}`);
+  if (nameFilter) params.push(`name=${encodeURIComponent(nameFilter)}`);
+  if (params.length) url += '?' + params.join('&');
+  const [rows, workers, branches] = await Promise.all([
+    GET(url),
+    GET('/api/workers'),
+    GET('/api/branches'),
+  ]);
+  _savedWorkers  = workers || [];
+  _savedBranches = branches || [];
+  renderSavedShifts(rows || []);
+}
+
+async function recalcSavedShifts() {
+  const res = await api('POST', '/api/shifts/saved/recalculate');
+  if (res?.ok) {
+    toast(`🔄 חושבו ${res.total} שורות · עובד מזוהה: ${res.workers_matched}/${res.total} · סניף מזוהה: ${res.branches_matched}/${res.total}`, 'success');
+    await loadSavedShifts();
+  }
+}
+
+let _savedRows = []; // cache for client-side sort
+let _savedWorkers = [];  // workers list for the connect dropdown
+let _savedBranches = []; // branches list for the connect dropdown
+let _workersSort = { col: 'full_name', dir: 1 };
+
+async function loadWorkers() {
+  const rows = await GET('/api/workers');
+  renderWorkersTable(rows || []);
+}
+
+function renderWorkersTable(workers) {
+  const el = document.getElementById('workers-content');
+  if (!el) return;
+
+  const sorted = [...workers].sort((a, b) => {
+    const va = String(a[_workersSort.col] ?? '');
+    const vb = String(b[_workersSort.col] ?? '');
+    if (_workersSort.col === 'sort_order' || _workersSort.col === 'sales_target') {
+      return ((parseFloat(va) || Infinity) - (parseFloat(vb) || Infinity)) * _workersSort.dir;
+    }
+    return va.localeCompare(vb, 'he') * _workersSort.dir;
+  });
+
+  const arrow = col => _workersSort.col !== col
+    ? `<span style="color:var(--border);font-size:.7rem;margin-right:.2rem">⇅</span>`
+    : `<span style="font-size:.7rem;margin-right:.2rem">${_workersSort.dir===1?'↑':'↓'}</span>`;
+  const th = (label, col) =>
+    `<th style="padding:.4rem .6rem;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none" onclick="sortWorkers('${col}')">${label}${arrow(col)}</th>`;
+
+  el.innerHTML = `
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <button class="btn btn-primary" style="font-size:.82rem" onclick="showAddWorkerForm()">+ הוסף עובד</button>
+      <label class="btn btn-outline" style="font-size:.82rem;cursor:pointer" id="workers-upload-label">
+        📥 העלה Excel
+        <input type="file" accept=".xlsx,.xls" onchange="uploadWorkersExcel(this)" style="display:none">
+      </label>
+      <span id="workers-upload-status" style="font-size:.82rem"></span>
+      <span style="font-size:.8rem;color:var(--muted);margin-right:auto">${workers.length} עובדים</span>
+    </div>
+    <div id="worker-form-area"></div>
+    ${workers.length === 0 ? '<div class="info">אין עובדים. העלה קובץ Excel או הוסף עובד ידנית.</div>' : `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:var(--surface);text-align:right">
+          ${th('שם מלא','full_name')}${th('ת.ז','id_number')}${th('כינוי','nickname')}
+          ${th('מנהל','manager')}${th('דרגה','rank')}${th('יעד מכירות','sales_target')}${th('מסד','sort_order')}
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(w => workerRowHtml(w)).join('')}
+        </tbody>
+      </table>
+    </div>`}`;
+}
+
+function sortWorkers(col) {
+  if (_workersSort.col === col) _workersSort.dir *= -1;
+  else { _workersSort.col = col; _workersSort.dir = 1; }
+  loadWorkers();
+}
+
+function workerRowHtml(w) {
+  return `<tr id="wrow-${w.id}" style="border-bottom:1px solid var(--border)">
+    <td style="padding:.4rem .6rem;font-weight:600">${esc(w.full_name||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(w.id_number||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(w.nickname||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(w.manager||'')}</td>
+    <td style="padding:.4rem .6rem">${w.rank==='manager'?'👔 מנהל':'👤 עובד'}</td>
+    <td style="padding:.4rem .6rem">${esc(w.sales_target||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(w.sort_order||'')}</td>
+    <td style="padding:.4rem .6rem;white-space:nowrap">
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem" onclick="editWorkerRow('${w.id}')">✏️</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem;color:var(--red)" onclick="deleteWorker('${w.id}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+function workerFieldsHtml(w) {
+  const inp = (field, val, placeholder, w2='120px') =>
+    `<input value="${esc(val||'')}" data-field="${field}" placeholder="${placeholder}"
+      style="width:${w2};padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
+  const rank = w.rank || 'worker';
+  return `
+    ${inp('full_name', w.full_name, 'שם מלא', '140px')}
+    ${inp('id_number', w.id_number, 'ת.ז', '90px')}
+    ${inp('nickname', w.nickname, 'כינוי', '100px')}
+    ${inp('manager', w.manager, 'מנהל', '120px')}
+    <select data-field="rank" style="padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+      <option value="worker" ${rank==='worker'?'selected':''}>👤 עובד</option>
+      <option value="manager" ${rank==='manager'?'selected':''}>👔 מנהל</option>
+    </select>
+    ${inp('sales_target', w.sales_target, 'יעד מכירות', '90px')}
+    ${inp('sort_order', w.sort_order, 'מסד', '60px')}`;
+}
+
+function showAddWorkerForm() {
+  const area = document.getElementById('worker-form-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+      <span style="font-size:.82rem;font-weight:600;margin-left:.5rem">עובד חדש:</span>
+      ${workerFieldsHtml({})}
+      <button class="btn btn-primary" style="font-size:.78rem;padding:.2rem .6rem" onclick="submitAddWorker()">הוסף</button>
+      <button class="btn btn-outline" style="font-size:.78rem;padding:.2rem .6rem" onclick="document.getElementById('worker-form-area').innerHTML=''">ביטול</button>
+    </div>`;
+}
+
+async function submitAddWorker() {
+  const area = document.getElementById('worker-form-area');
+  const data = {};
+  area.querySelectorAll('[data-field]').forEach(inp => { data[inp.dataset.field] = inp.value.trim(); });
+  if (!data.full_name) { toast('שם מלא הוא שדה חובה', 'error'); return; }
+  await api('POST', '/api/workers', data);
+  await loadWorkers();
+}
+
+function editWorkerRow(id) {
+  const tr = document.getElementById('wrow-' + id);
+  if (!tr) return;
+  const cells = tr.querySelectorAll('td');
+  const rankCell = cells[4].textContent.trim();
+  const w = { full_name: cells[0].textContent.trim(), id_number: cells[1].textContent.trim(),
+               nickname: cells[2].textContent.trim(), manager: cells[3].textContent.trim(),
+               rank: rankCell.includes('מנהל') ? 'manager' : 'worker',
+               sales_target: cells[5].textContent.trim(),
+               sort_order: cells[6].textContent.trim() };
+  tr.innerHTML = `
+    <td colspan="6" style="padding:.3rem .4rem">
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+        ${workerFieldsHtml(w)}
+      </div>
+    </td>
+    <td style="padding:.3rem .4rem;white-space:nowrap">
+      <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="saveWorkerRow('${id}')">שמור</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="loadWorkers()">ביטול</button>
+    </td>`;
+}
+
+async function saveWorkerRow(id) {
+  const tr = document.getElementById('wrow-' + id);
+  const data = { id };
+  tr.querySelectorAll('[data-field]').forEach(inp => { data[inp.dataset.field] = inp.value.trim(); });
+  await api('PUT', `/api/workers/${id}`, data);
+  await loadWorkers();
+}
+
+async function deleteWorker(id) {
+  if (!confirm('למחוק עובד זה?')) return;
+  await api('DELETE', `/api/workers/${id}`);
+  await loadWorkers();
+}
+
+// ── Branches tab ─────────────────────────────────────────────────────────────
+
+async function loadBranches() {
+  const branches = await api('GET', '/api/branches');
+  renderBranchesTable(branches || [], []);
+}
+
+function renderBranchesTable(branches, discovered) {
+  const el = document.getElementById('branches-content');
+  if (!el) return;
+
+  const discoverHtml = discovered.length ? `
+    <div style="margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+      <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">🔍 סניפים חדשים שנמצאו בדוחות מכירות (${discovered.length})</div>
+      <div style="display:flex;flex-direction:column;gap:.3rem">
+        ${discovered.map((d, i) => `
+          <div style="display:flex;gap:.5rem;align-items:center;font-size:.8rem">
+            <span style="min-width:220px">${esc(d.raw)}</span>
+            <button class="btn btn-outline btn-sm" onclick='addDiscoveredBranch(${JSON.stringify(d).replace(/'/g,"&#39;")})'>+ הוסף</button>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  el.innerHTML = `
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <button class="btn btn-primary" style="font-size:.82rem" onclick="showAddBranchForm()">+ הוסף סניף</button>
+      <label class="btn btn-outline" style="font-size:.82rem;cursor:pointer" id="branches-upload-label">
+        ⬆️ ייבוא מאקסל
+        <input type="file" accept=".xlsx,.xls" onchange="uploadBranchesExcel(this)" style="display:none">
+      </label>
+      <span id="branches-upload-status" style="font-size:.82rem"></span>
+      ${branches.length ? `<button class="btn btn-outline" style="font-size:.82rem;color:var(--red)" onclick="deleteAllBranches()">🗑️ מחק הכל</button>` : ''}
+      <span style="font-size:.8rem;color:var(--muted);margin-right:auto">${branches.length} סניפים</span>
+    </div>
+    ${branches.length ? `
+    <div style="margin-bottom:.8rem">
+      <input id="branch-search" type="text" placeholder="🔍 חיפוש לפי שם או מספר סניף..."
+             oninput="filterBranchRows(this.value)"
+             style="width:260px;padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text)">
+      <span id="branch-search-count" style="font-size:.78rem;color:var(--muted);margin-right:.5rem"></span>
+    </div>` : ''}
+    ${discoverHtml}
+    <div id="branch-form-area"></div>
+    ${branches.length === 0 ? '<div class="info">אין סניפים. הוסף סניף ידנית או מהרשימה שהתגלתה.</div>' : `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:var(--surface);text-align:right">
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">מספר</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">שם סניף</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">כינויים (מופרדים בפסיק)</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
+        </tr></thead>
+        <tbody id="branches-tbody">
+          ${branches.map(b => branchRowHtml(b)).join('')}
+        </tbody>
+      </table>
+    </div>`}`;
+}
+
+function filterBranchRows(q) {
+  q = (q || '').trim().toLowerCase();
+  const tbody = document.getElementById('branches-tbody');
+  if (!tbody) return;
+  let shown = 0, total = 0;
+  for (const tr of tbody.querySelectorAll('tr')) {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length < 2) continue; // skip rows in edit mode
+    total++;
+    const number = (cells[0].textContent || '').trim().toLowerCase();
+    const name   = (cells[1].textContent || '').trim().toLowerCase();
+    const match  = !q || number.includes(q) || name.includes(q);
+    tr.style.display = match ? '' : 'none';
+    if (match) shown++;
+  }
+  const count = document.getElementById('branch-search-count');
+  if (count) count.textContent = q ? `${shown} מתוך ${total}` : '';
+}
+
+function branchRowHtml(b) {
+  return `<tr id="brow-${b.id}" style="border-bottom:1px solid var(--border)">
+    <td style="padding:.4rem .6rem">${esc(b.number||'')}</td>
+    <td style="padding:.4rem .6rem;font-weight:600">${esc(b.name||'')}</td>
+    <td style="padding:.4rem .6rem">${esc((b.nicknames||[]).join(', '))}</td>
+    <td style="padding:.4rem .6rem;white-space:nowrap">
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem" onclick="editBranchRow('${b.id}')">✏️</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem;color:var(--red)" onclick="deleteBranch('${b.id}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+function branchFieldsHtml(b) {
+  const inp = (field, val, placeholder, w2='120px') =>
+    `<input value="${esc(val||'')}" data-field="${field}" placeholder="${placeholder}"
+      style="width:${w2};padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
+  return `
+    ${inp('number', b.number, 'מספר', '80px')}
+    ${inp('name', b.name, 'שם סניף', '160px')}
+    ${inp('nicknames', (b.nicknames||[]).join(', '), 'כינויים, מופרדים בפסיק', '260px')}`;
+}
+
+function showAddBranchForm(prefill) {
+  const area = document.getElementById('branch-form-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+      <span style="font-size:.82rem;font-weight:600;margin-left:.5rem">סניף חדש:</span>
+      ${branchFieldsHtml(prefill || {})}
+      <button class="btn btn-primary" style="font-size:.78rem;padding:.2rem .6rem" onclick="submitAddBranch()">הוסף</button>
+      <button class="btn btn-outline" style="font-size:.78rem;padding:.2rem .6rem" onclick="document.getElementById('branch-form-area').innerHTML=''">ביטול</button>
+    </div>`;
+  area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function addDiscoveredBranch(d) {
+  showAddBranchForm({ number: d.number, name: d.name });
+}
+
+function collectBranchFields(area) {
+  const data = {};
+  area.querySelectorAll('[data-field]').forEach(inp => {
+    if (inp.dataset.field === 'nicknames') {
+      data.nicknames = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      data[inp.dataset.field] = inp.value.trim();
+    }
+  });
+  return data;
+}
+
+async function submitAddBranch() {
+  const area = document.getElementById('branch-form-area');
+  const data = collectBranchFields(area);
+  if (!data.name) { toast('שם סניף הוא שדה חובה', 'error'); return; }
+  await api('POST', '/api/branches', data);
+  await loadBranches();
+}
+
+function editBranchRow(id) {
+  const tr = document.getElementById('brow-' + id);
+  if (!tr) return;
+  const cells = tr.querySelectorAll('td');
+  const b = { number: cells[0].textContent.trim(), name: cells[1].textContent.trim(),
+              nicknames: cells[2].textContent.trim().split(',').map(s => s.trim()).filter(Boolean) };
+  tr.innerHTML = `
+    <td colspan="3" style="padding:.3rem .4rem">
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+        ${branchFieldsHtml(b)}
+      </div>
+    </td>
+    <td style="padding:.3rem .4rem;white-space:nowrap">
+      <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="saveBranchRow('${id}')">שמור</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="loadBranches()">ביטול</button>
+    </td>`;
+}
+
+async function saveBranchRow(id) {
+  const tr = document.getElementById('brow-' + id);
+  const data = collectBranchFields(tr);
+  data.id = id;
+  await api('PUT', `/api/branches/${id}`, data);
+  await loadBranches();
+}
+
+async function deleteBranch(id) {
+  if (!confirm('למחוק סניף זה?')) return;
+  await api('DELETE', `/api/branches/${id}`);
+  await loadBranches();
+}
+
+async function deleteAllBranches() {
+  if (!confirm('למחוק את כל הסניפים? פעולה זו אינה הפיכה.')) return;
+  await api('DELETE', '/api/branches');
+  await loadBranches();
+}
+
+async function uploadBranchesExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('branches-upload-status');
+  try {
+    if (status) { status.style.color = 'var(--accent)'; status.textContent = 'מעלה...'; }
+    const fd = new FormData(); fd.append('file', file);
+    const res = await api('POST', '/api/branches/upload', fd, true);
+    if (res?.ok) {
+      if (status) { status.style.color = 'var(--green)'; status.textContent = `✅ ${res.count} סניפים נוספו`; }
+      await loadBranches();
+    }
+  } catch(e) {
+    if (status) { status.style.color = 'var(--red)'; status.textContent = `❌ שגיאה: ${e.message}`; }
+  }
+  input.value = '';
+}
+
+// ── Branch report tab ────────────────────────────────────────────────────────
+
+async function initBranchReportTab() {
+  await loadBranchReport();
+}
+
+async function onBranchReportDateChange(val) {
+  // val is YYYY-MM-DD from the picker; convert to DD/MM/YYYY for the API
+  if (!val) { S.branchReportDate = null; }
+  else {
+    const [yr, mo, dy] = val.split('-');
+    S.branchReportDate = `${dy}/${mo}/${yr}`;
+  }
+  await loadBranchReport();
+}
+
+async function loadBranchReport() {
+  const el = document.getElementById('branch-report-content');
+  if (!el) return;
+  try {
+    const qs = S.branchReportDate ? `?date=${encodeURIComponent(S.branchReportDate)}` : '';
+    const data = await api('GET', '/api/report/branches' + qs);
+    const rows = data?.rows || [];
+    const mismatches = data?.mismatches || [];
+
+    // Sync the date picker with the date actually returned (handles default = latest date)
+    if (data?.date) {
+      S.branchReportDate = data.date;
+      const picker = document.getElementById('branch-report-date-picker');
+      if (picker) {
+        const [dy, mo, yr] = data.date.split('/');
+        if (dy && mo && yr) picker.value = `${yr}-${mo}-${dy}`;
+      }
+    }
+
+    if (!rows.length) {
+      el.innerHTML = '<div class="info">אין נתוני סניפים לתאריך זה.</div>';
+      return;
+    }
+
+    const th = t => `<th style="white-space:nowrap;font-size:.75rem;padding:.4rem .5rem">${t}</th>`;
+    const tableHtml = `
+      <div style="overflow-x:auto">
+      <table class="tbl tbl-grid" style="font-size:.8rem">
+        <thead><tr>${th('מספר')}${th('שם סניף')}${th('שעות')}${th('מכירות')}</tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>
+            <td style="text-align:center">${esc(r.number||'')}</td>
+            <td>${esc(r.name||'')}</td>
+            <td style="text-align:center">${r.hours || 0}</td>
+            <td style="text-align:center">${r.sales || 0}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+
+    let mismatchHtml = '';
+    if (mismatches.length) {
+      mismatchHtml = `
+        <h3 style="font-size:.95rem;margin:1.5rem 0 .6rem">⚠️ סניפים עם מכירות ללא שעות</h3>
+        ${mismatches.map(m => `
+          <div style="margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+            <div style="font-weight:600;font-size:.85rem;margin-bottom:.5rem">🏬 ${esc(m.branch_label)}</div>
+            ${m.workers.map(w => `
+              <div style="margin-bottom:.5rem;font-size:.8rem">
+                <div style="font-weight:600">${esc(w.full_name || w.worker_name)}${w.full_name && w.full_name !== w.worker_name ? ` <span style="font-weight:400;color:var(--muted)">(במכירות: ${esc(w.worker_name)})</span>` : ''}</div>
+                ${(w.sales || []).length ? `
+                  <div style="margin-top:.2rem">
+                    מספרי מכירה בסניף זה (${w.sales.length}):
+                    <span style="direction:ltr;unicode-bidi:embed">${w.sales.map(s => esc(s.sale_number)).join(', ')}</span>
+                  </div>` : ''}
+                ${w.shifts.length ? `
+                  <div style="color:var(--muted);margin-top:.2rem">
+                    שעות נרשמו ב: ${w.shifts.map(s => `${esc(s.date)}: ${esc(s.workplace || '—')}${s.branch_key ? ` → ${esc(s.branch_key)}` : ' (סניף לא מזוהה)'}`).join('<br>')}
+                  </div>` : `<div style="color:var(--muted);margin-top:.2rem">אין רישום שעות לעובד זה בתאריך זה</div>`}
+              </div>`).join('')}
+          </div>`).join('')}`;
+    }
+
+    el.innerHTML = tableHtml + mismatchHtml;
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+async function uploadWorkersExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const setStatus = (msg, color='var(--muted)') => {
+    const el = document.getElementById('workers-upload-status');
+    if (el) { el.textContent = msg; el.style.color = color; }
+  };
+  setStatus(`⏳ בודק קובץ "${file.name}"...`);
+  try {
+    const existing = await GET('/api/workers');
+    if (existing?.length > 0) {
+      if (!confirm(`קיימים ${existing.length} עובדים. העלאה תמחק את כל הנתונים הקיימים ותחליף אותם. להמשיך?`)) {
+        input.value = '';
+        setStatus('');
+        return;
+      }
+    }
+    setStatus('⏳ מעלה ומעבד...');
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await api('POST', '/api/workers/upload', fd, true);
+    if (res?.ok) {
+      setStatus(`✅ ${res.count} עובדים נטענו בהצלחה`, 'var(--success)');
+      await loadWorkers();
+    }
+  } catch(e) {
+    setStatus(`❌ שגיאה: ${e.message}`, 'var(--red)');
+  }
+  input.value = '';
+}
+async function uploadSalesFile(file) {
+  if (!file) return;
+  const setStatus = (msg, color='var(--accent)') => {
+    const el = document.getElementById('sales-file-status');
+    if (el) { el.textContent = msg; el.style.color = color; }
+  };
+  setStatus('⏳ מעלה ומעבד...');
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await api('POST', '/api/sales/upload', fd, true);
+    if (res?.ok) {
+      setStatus(`✅ ${res.count} רשומות נטענו`, 'var(--green)');
+      loadSales();
+    }
+  } catch(e) { setStatus(`❌ שגיאה: ${e.message}`, 'var(--red)'); }
+}
+
+function handleSalesDrop(e) {
+  e.preventDefault();
+  document.getElementById('sales-upload-area').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadSalesFile(file);
+}
+
+async function uploadArnakotFile(file) {
+  if (!file) return;
+  const setStatus = (msg, color='var(--accent)') => {
+    const el = document.getElementById('arnakot-file-status');
+    if (el) el.style.color = color, el.textContent = msg;
+  };
+  try {
+    setStatus('מעלה...');
+    const fd = new FormData(); fd.append('file', file);
+    const res = await api('POST', '/api/arnakot/upload', fd, true);
+    if (res?.ok) {
+      setStatus(`✅ ${res.count} רשומות נטענו`, 'var(--green)');
+      loadArnakot();
+      const unmatchedEl = document.getElementById('arnakot-unmatched');
+      if (unmatchedEl) {
+        if (res.unmatched && res.unmatched.length) {
+          unmatchedEl.style.display = 'block';
+          unmatchedEl.innerHTML = `⚠️ <strong>עובדים שלא נמצאו בטבלת העובדים:</strong> ${res.unmatched.map(n => esc(n)).join(', ')}`;
+        } else {
+          unmatchedEl.style.display = 'none';
+        }
+      }
+    }
+  } catch(e) { setStatus(`❌ שגיאה: ${e.message}`, 'var(--red)'); }
+  document.getElementById('arnakot-file').value = '';
+}
+
+function handleArnakotDrop(e) {
+  e.preventDefault();
+  document.getElementById('arnakot-upload-area').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadArnakotFile(file);
+}
+
+function switchPreviewTab(tab) {
+  const salesWrap   = document.getElementById('sales-table-wrap');
+  const arnakotWrap = document.getElementById('arnakot-table-wrap');
+  const tabSales    = document.getElementById('preview-tab-sales');
+  const tabArnakot  = document.getElementById('preview-tab-arnakot');
+  if (!salesWrap || !arnakotWrap) return;
+  const isSales = tab === 'sales';
+  salesWrap.style.display   = isSales ? '' : 'none';
+  arnakotWrap.style.display = isSales ? 'none' : '';
+  if (tabSales)   { tabSales.style.borderBottomColor   = isSales ? 'var(--accent)' : 'transparent'; tabSales.style.color   = isSales ? 'var(--accent)' : 'var(--muted)'; tabSales.style.fontWeight   = isSales ? '600' : 'normal'; }
+  if (tabArnakot) { tabArnakot.style.borderBottomColor = isSales ? 'transparent' : 'var(--accent)'; tabArnakot.style.color = isSales ? 'var(--muted)' : 'var(--accent)'; tabArnakot.style.fontWeight = isSales ? 'normal' : '600'; }
+}
+
+async function loadArnakot() {
+  const wrap = document.getElementById('arnakot-table-wrap');
+  if (!wrap) return;
+  const rows = await api('GET', '/api/arnakot');
+  if (!rows || !rows.length) {
+    wrap.innerHTML = '<div class="info" style="margin-top:0">אין נתוני ארנוקים. העלה קובץ דוח ארנוקים.</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem">${rows.length} רשומות</div>
+    <div style="overflow-x:auto">
+    <table class="tbl" style="font-size:.78rem">
+      <thead><tr><th>שם עובד</th><th>תאריך</th></tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.date)}</td></tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+// ── Holidays tab ─────────────────────────────────────────────────────────────
+let _holidays = [];
+
+async function loadHolidaysTab(refresh) {
+  const yearEl = document.getElementById('hol-year');
+  if (!yearEl) return;
+  const year = parseInt(yearEl.value);
+  const url = `/api/holidays/${year}` + (refresh ? '?refresh=true' : '');
+  const list = await api('GET', url);
+  _holidays = list ? JSON.parse(JSON.stringify(list)) : [];
+  if (refresh && S.holidays) S.holidays[year] = null;
+  renderHolidaysTab();
+}
+
+function renderHolidaysTab() {
+  const el = document.getElementById('hol-content');
+  if (!el) return;
+  const typeVal = { off: 0, half: 0.5 };
+  el.innerHTML = `
+    <table class="tbl" style="font-size:.85rem;max-width:640px">
+      <thead><tr>
+        <th>תאריך</th><th>שם החג</th><th>ימי עבודה</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${_holidays.map((h, i) => `<tr>
+          <td><input class="sb-input" style="width:110px" value="${esc(h.date)}"
+            oninput="_holidays[${i}].date=this.value"></td>
+          <td><input class="sb-input" style="width:100%;min-width:160px" value="${esc(h.name)}"
+            oninput="_holidays[${i}].name=this.value"></td>
+          <td>
+            <select class="sb-input" style="width:auto"
+              onchange="_holidays[${i}].type=this.value">
+              <option value="off"  ${h.type==='off' ?'selected':''}>0 — יום חופש</option>
+              <option value="half" ${h.type==='half'?'selected':''}>0.5 — חצי יום</option>
+            </select>
+          </td>
+          <td><button class="alias-del" onclick="_holidays.splice(${i},1);renderHolidaysTab()">✕</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function addHolidayRow() {
+  _holidays.push({ date: '', name: '', type: 'off' });
+  renderHolidaysTab();
+}
+
+async function saveHolidaysTab() {
+  const yearEl = document.getElementById('hol-year');
+  if (!yearEl) return;
+  const year = parseInt(yearEl.value);
+  await api('PUT', `/api/holidays/${year}`, _holidays);
+  if (S.holidays) S.holidays[year] = null;
+  toast('חגים נשמרו!');
+}
+
+function exportReport() {
+  const m = S.reportMonth || '';
+  window.location.href = '/api/report/export' + (m ? `?month=${m}` : '');
+}
+
+// ── Hebrew month names ──────────────────────────────────────────────────────
+const HE_MONTHS = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+function fmtMonth(ym) {
+  if (!ym) return '';
+  const [y, m] = ym.split('-');
+  return `${HE_MONTHS[parseInt(m)] || m} ${y}`;
+}
+
+// Convert DD/MM/YYYY or YYYY-MM-DD to YYYY-MM
+function toYM(d) {
+  if (!d) return '';
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d.slice(6,10) + '-' + d.slice(3,5);
+  if (/^\d{4}-\d{2}/.test(d)) return d.slice(0,7);
+  return '';
+}
+
+// Convert DD/MM/YYYY to YYYY-MM-DD for comparison
+function toISO(d) {
+  if (!d) return '';
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) return `${d.slice(6,10)}-${d.slice(3,5)}-${d.slice(0,2)}`;
+  return d;
+}
+
+// Count work days in a month given holiday map {YYYY-MM-DD: 'off'|'half'}
+// Returns {total, done} where done = days up to and including untilISO
+function calcWorkDays(year, month, holidayMap, untilISO) {
+  const daysInMonth = new Date(year, month, 0).getDate(); // month is 1-based
+  let total = 0, done = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month - 1, day);
+    const dow = d.getDay(); // 0=Sun,6=Sat
+    if (dow === 6) continue; // Saturday
+    const iso = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const ht = holidayMap[iso];
+    let val = (ht === 'off') ? 0 : (ht === 'half' || dow === 5) ? 0.5 : 1; // dow 5 = Friday
+    total += val;
+    if (untilISO && iso <= untilISO) done += val;
+  }
+  return { total, done };
+}
+
+async function getHolidays(year) {
+  if (S.holidays[year]) return S.holidays[year];
+  const list = await api('GET', `/api/holidays/${year}`);
+  S.holidays[year] = list || [];
+  return S.holidays[year];
+}
+
+async function initReportTab() {
+  // Load months list
+  const months = await api('GET', '/api/report/months');
+  S.reportMonths = months || [];
+  const sel = document.getElementById('report-month-select');
+  if (!sel) return;
+  if (!S.reportMonths.length) {
+    sel.innerHTML = '<option value="">אין נתונים</option>';
+  } else {
+    if (!S.reportMonth || !S.reportMonths.includes(S.reportMonth))
+      S.reportMonth = S.reportMonths[0];
+    sel.innerHTML = S.reportMonths.map(m =>
+      `<option value="${m}" ${m === S.reportMonth ? 'selected' : ''}>${fmtMonth(m)}</option>`
+    ).join('');
+  }
+  await loadFullReport();
+}
+
+async function onReportMonthChange(val) {
+  S.reportMonth = val;
+  S.dailyDate = null; // re-derive default daily date for the new month
+  S.dailyDateManual = false;
+  const dp = document.getElementById('daily-date-picker');
+  if (dp) dp.value = '';
+  const dc = document.getElementById('daily-report-content');
+  if (dc) dc.innerHTML = '';
+  await loadFullReport();
+}
+
+async function loadFullReport() {
+  const el = document.getElementById('report-content');
+  if (!el) return;
+  try {
+    const [workers, shifts, salesData, arnakoData, colorsCfg] = await Promise.all([
+      api('GET', '/api/workers'),
+      api('GET', '/api/shifts/saved'),
+      api('GET', '/api/sales'),
+      api('GET', '/api/arnakot'),
+      api('GET', '/api/report/colors'),
+    ]);
+    S.reportColors = colorsCfg || { managers: {}, sum_color: '#bdd7ee', grand_color: '#ffd966' };
+    S.reportWorkers = workers || [];
+
+    const month = S.reportMonth;
+
+    // Filter helpers
+    const inMonth = d => month ? toYM(d) === month : true;
+
+    // Latest ISO date in this month across both data sets (for "days done" cutoff)
+    let latestISO = '';
+    for (const s of (shifts || [])) {
+      if (inMonth(s.date)) { const iso = toISO(s.date); if (iso > latestISO) latestISO = iso; }
+    }
+    for (const s of (salesData || [])) {
+      if (inMonth(s.date)) { const iso = toISO(s.date); if (iso > latestISO) latestISO = iso; }
+    }
+
+    // Work day projection for the selected month
+    let projTotal = 0, projDone = 0;
+    if (month) {
+      const [yr, mo] = month.split('-').map(Number);
+      const holidays = await getHolidays(yr);
+      const hMap = {};
+      for (const h of holidays) hMap[h.date] = h.type;
+      const wd = calcWorkDays(yr, mo, hMap, latestISO);
+      projTotal = wd.total;
+      projDone  = wd.done;
+    }
+
+    const fmt = n => (n === null || n === undefined || n === '') ? 0 : (n % 1 === 0 ? n : parseFloat(n.toFixed(2)));
+    const proj = (val, done, total) => (done && total) ? fmt(val / done * total) : 0;
+    const pctStr = (p, target) => {
+      const t = parseFloat(target);
+      if (!t) return 0;
+      return fmt((parseFloat(p) || 0) / t * 100) + '%';
+    };
+
+    // Shift stats (filtered to month) — keyed by the resolved worker when available
+    const shiftStats = {};
+    for (const s of (shifts || [])) {
+      if (!inMonth(s.date)) continue;
+      const name = ((s.worker_key || s.worker_name) || '').trim();
+      if (!name) continue;
+      if (!shiftStats[name]) shiftStats[name] = { dates: new Set(), hours: 0 };
+      if (s.date) shiftStats[name].dates.add(s.date);
+      shiftStats[name].hours += (parseFloat(s.hours) || 0);
+    }
+
+    // Sales stats (filtered to month)
+    const salesStats = {};
+    const initSale = () => ({ total: 0, rev1500: 0, rev2500: 0, rev4000: 0, standingOrder: 0, issued: 0 });
+    for (const s of (salesData || [])) {
+      if (!inMonth(s.date)) continue;
+      const name = ((s.first_name || '') + ' ' + (s.last_name || '')).trim();
+      if (!name) continue;
+      if (!salesStats[name]) salesStats[name] = initSale();
+      const st = salesStats[name];
+      if (s.approved)       st.total++;
+      if (s.revolving_1500) st.rev1500++;
+      if (s.revolving_2500) st.rev2500++;
+      if (s.revolving_4000) st.rev4000++;
+      if (s.standing_order) st.standingOrder++;
+      if ((s.status_raw || '').trim() === 'הונפק') st.issued++;
+    }
+
+    // Arnakot stats (filtered to month)
+    const arnakoStats = {};
+    for (const a of (arnakoData || [])) {
+      if (!inMonth(a.date)) continue;
+      const name = (a.name || '').trim();
+      if (!name) continue;
+      arnakoStats[name] = (arnakoStats[name] || 0) + 1;
+    }
+
+    // Group workers by manager, sorted by מסד
+    const { managerMap, noManager, orderedGroups } = groupWorkersSorted(workers);
+    const mgrColors = S.reportColors.managers || {};
+    const sumColor   = S.reportColors.sum_color || '#bdd7ee';
+    const grandColor = S.reportColors.grand_color || '#ffd966';
+
+    let rows = '';
+
+    const workerRow = (w, isMgr, color) => {
+      const ss = shiftStats[w.full_name] || { dates: new Set(), hours: 0 };
+      const sa = salesStats[w.full_name] || initSale();
+      const sh = ss.dates.size, hr = ss.hours;
+      const avg = hr ? fmt(sa.total / hr) : 0;
+      const pH  = proj(hr, projDone, projTotal);
+      const pS  = proj(sa.total, projDone, projTotal);
+      const bg  = (color ? `background:${color};` : '') + (isMgr ? 'font-weight:600' : '');
+      return `<tr style="${bg}">
+        <td>${esc(w.id_number||'')}</td>
+        <td>${esc(w.full_name||'')}</td>
+        <td>${esc(isMgr ? '' : (w.manager||''))}</td>
+        <td style="text-align:center">${sh}</td>
+        <td style="text-align:center">${fmt(hr)||0}</td>
+        <td style="text-align:center">${sa.total}</td>
+        <td style="text-align:center">${sa.rev1500}</td>
+        <td style="text-align:center">${sa.rev2500}</td>
+        <td style="text-align:center">${sa.rev4000}</td>
+        <td style="text-align:center">${sa.standingOrder}</td>
+        <td style="text-align:center">${arnakoStats[w.full_name] || 0}</td>
+        <td style="text-align:center">${avg}</td>
+        <td style="text-align:center">${pH}</td>
+        <td style="text-align:center">${esc(w.sales_target||'') || 0}</td>
+        <td style="text-align:center">${pS}</td>
+        <td style="text-align:center">${pctStr(pS, w.sales_target)}</td>
+        <td style="text-align:center">${sa.issued}</td>
+      </tr>`;
+    };
+
+    const workerByName = {};
+    for (const w of (workers || [])) workerByName[w.full_name] = w;
+
+    const sumWorkers = nameList => {
+      let sh=0, hr=0, total=0, rev1500=0, rev2500=0, rev4000=0, so=0, issued=0, arnakot=0;
+      for (const n of nameList) {
+        const ss = shiftStats[n] || { dates: new Set(), hours: 0 };
+        const sa = salesStats[n] || initSale();
+        sh += ss.dates.size; hr += ss.hours; total += sa.total;
+        rev1500 += sa.rev1500; rev2500 += sa.rev2500; rev4000 += sa.rev4000;
+        so += sa.standingOrder; issued += sa.issued;
+        arnakot += (arnakoStats[n] || 0);
+      }
+      return { sh, hr, total, rev1500, rev2500, rev4000, so, issued, arnakot };
+    };
+
+    // Sum row: label, everyone included for operational stats;
+    // יעד + % הגעה computed from workers only (excluding manager's own data)
+    const sumRow = (label, allNames, workerOnlyNames, color) => {
+      const t = sumWorkers(allNames);
+      const avg = t.hr ? fmt(t.total / t.hr) : 0;
+      const pH  = proj(t.hr, projDone, projTotal);
+      const pS  = proj(t.total, projDone, projTotal);
+      let targetSum = 0, workersTotal = 0;
+      for (const n of workerOnlyNames) {
+        targetSum += parseFloat(workerByName[n]?.sales_target) || 0;
+        workersTotal += (salesStats[n] || initSale()).total;
+      }
+      const pSW = proj(workersTotal, projDone, projTotal);
+      const pct = targetSum ? fmt((parseFloat(pSW) || 0) / targetSum * 100) + '%' : 0;
+      return `<tr style="background:${color};font-weight:700;font-size:.8rem">
+        <td colspan="2">${esc(label)}</td><td></td>
+        <td style="text-align:center">${t.sh}</td>
+        <td style="text-align:center">${fmt(t.hr)||0}</td>
+        <td style="text-align:center">${t.total}</td>
+        <td style="text-align:center">${t.rev1500}</td>
+        <td style="text-align:center">${t.rev2500}</td>
+        <td style="text-align:center">${t.rev4000}</td>
+        <td style="text-align:center">${t.so}</td>
+        <td style="text-align:center">${t.arnakot || 0}</td>
+        <td style="text-align:center">${avg}</td>
+        <td style="text-align:center">${pH}</td>
+        <td style="text-align:center">${fmt(targetSum)}</td>
+        <td style="text-align:center">${pS}</td>
+        <td style="text-align:center">${pct}</td>
+        <td style="text-align:center">${t.issued}</td>
+      </tr>`;
+    };
+
+    const grandAll = [], grandWorkers = [];
+    for (const [mgrName, group] of orderedGroups) {
+      const color = mgrColors[mgrName] || '';
+      for (const w of group.workers) rows += workerRow(w, false, color);
+      if (group.managerWorker) rows += workerRow(group.managerWorker, true, color);
+      const workerNames = group.workers.map(w => w.full_name);
+      const allNames = [...workerNames];
+      if (group.managerWorker) allNames.push(group.managerWorker.full_name);
+      rows += sumRow(`סה״כ ${mgrName}`, allNames, workerNames, sumColor);
+      grandAll.push(...allNames);
+      grandWorkers.push(...workerNames);
+    }
+    for (const w of noManager) {
+      rows += workerRow(w, false, '');
+      grandAll.push(w.full_name);
+      grandWorkers.push(w.full_name);
+    }
+    if (grandAll.length) rows += sumRow('סה״כ כללי', grandAll, grandWorkers, grandColor);
+
+    if (!rows) { el.innerHTML = '<div class="info">אין נתוני עובדים. הוסף עובדים בטאב 👷 עובדים.</div>'; return; }
+
+    const projInfo = projTotal
+      ? `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">
+           ימי עבודה בחודש: ${projTotal} | בוצעו עד כה: ${projDone}
+           ${latestISO ? `(נכון ל-${latestISO.split('-').reverse().join('/')})` : ''}
+         </div>`
+      : '';
+
+    const th = t => `<th style="white-space:nowrap;font-size:.75rem;padding:.4rem .5rem">${t}</th>`;
+    el.innerHTML = projInfo + `
+      <div style="overflow-x:auto">
+      <table class="tbl tbl-grid" style="font-size:.8rem">
+        <thead><tr>
+          ${th('ת.ז')}${th('שם עובד')}${th('מנהל')}${th('משמרות')}${th('שעות')}
+          ${th('סה״כ מכירות')}${th('אשראי עד 1500')}${th('אשראי 1501-2500')}${th('אשראי 2501-4000')}
+          ${th('סה״כ הו״ק')}${th('סה״כ ארנוקים')}${th('ממוצע מכירות/שעה')}
+          ${th('צפי שעות')}${th('יעד')}${th('צפי מכירות')}${th('% הגעה ליעד')}${th('הנפקות')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+
+    // Default daily report date = latest date with data. Re-derived on every
+    // report load (new saved lines move it forward) unless the user picked a
+    // date manually this session.
+    if (latestISO && (!S.dailyDate || !S.dailyDateManual) && S.dailyDate !== latestISO) {
+      S.dailyDate = latestISO;
+      const picker = document.getElementById('daily-date-picker');
+      if (picker) picker.value = latestISO;
+      loadDailyReport();
+    } else if (latestISO && S.dailyDate) {
+      // Keep the picker in sync when re-entering the tab
+      const picker = document.getElementById('daily-date-picker');
+      if (picker && !picker.value) { picker.value = S.dailyDate; loadDailyReport(); }
+    }
+  } catch(e) {
+    const el2 = document.getElementById('report-content');
+    if (el2) el2.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+// Shared: group workers by manager, workers sorted by מסד inside groups,
+// groups ordered by the manager's own מסד
+function groupWorkersSorted(workers) {
+  const sortKey = w => {
+    const v = parseFloat(w?.sort_order);
+    return isNaN(v) ? Infinity : v;
+  };
+  const managerMap = {};
+  const noManager = [];
+  for (const w of (workers || [])) {
+    if (w.rank === 'manager') {
+      if (!managerMap[w.full_name]) managerMap[w.full_name] = { managerWorker: w, workers: [] };
+      else managerMap[w.full_name].managerWorker = w;
+    }
+  }
+  for (const w of (workers || [])) {
+    if (w.rank === 'manager') continue;
+    const mgr = (w.manager || '').trim();
+    if (mgr && managerMap[mgr]) managerMap[mgr].workers.push(w);
+    else if (mgr) { if (!managerMap[mgr]) managerMap[mgr] = { managerWorker: null, workers: [] }; managerMap[mgr].workers.push(w); }
+    else noManager.push(w);
+  }
+  for (const g of Object.values(managerMap)) g.workers.sort((a, b) => sortKey(a) - sortKey(b));
+  noManager.sort((a, b) => sortKey(a) - sortKey(b));
+  const orderedGroups = Object.entries(managerMap).sort((a, b) =>
+    sortKey(a[1].managerWorker) - sortKey(b[1].managerWorker));
+  return { managerMap, noManager, orderedGroups };
+}
+
+// ── Report colors panel ──────────────────────────────────────────────────────
+
+async function toggleColorsPanel() {
+  const panel = document.getElementById('colors-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+
+  const [workers, colors] = await Promise.all([
+    api('GET', '/api/workers'),
+    api('GET', '/api/report/colors'),
+  ]);
+  const managers = (workers || []).filter(w => w.rank === 'manager');
+  const mgrColor = name => (colors.managers || {})[name] || '#ffffff';
+
+  const row = (label, id, val) => `
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem">
+      <span style="min-width:140px;font-size:.82rem">${esc(label)}</span>
+      <input type="color" id="${id}-picker" value="${esc(val)}"
+             oninput="document.getElementById('${id}-hex').value=this.value">
+      <input type="text" id="${id}-hex" value="${esc(val)}" placeholder="#RRGGBB"
+             style="width:90px;padding:.2rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text);direction:ltr"
+             oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('${id}-picker').value=this.value">
+    </div>`;
+
+  panel.innerHTML = `
+    <div style="font-weight:600;font-size:.88rem;margin-bottom:.6rem">🎨 צבעי דוח</div>
+    ${managers.map((m, i) => row(m.full_name, `clr-mgr-${i}`, mgrColor(m.full_name))).join('')}
+    ${row('שורת סה״כ מנהל', 'clr-sum', colors.sum_color || '#bdd7ee')}
+    ${row('שורת סה״כ כללי', 'clr-grand', colors.grand_color || '#ffd966')}
+    <div style="margin-top:.6rem">
+      <button class="btn btn-primary btn-sm" onclick="saveReportColors()">שמור</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('colors-panel').style.display='none'">סגור</button>
+    </div>`;
+  panel.dataset.managers = JSON.stringify(managers.map(m => m.full_name));
+  panel.style.display = 'block';
+}
+
+async function saveReportColors() {
+  const panel = document.getElementById('colors-panel');
+  if (!panel) return;
+  const names = JSON.parse(panel.dataset.managers || '[]');
+  const managers = {};
+  names.forEach((n, i) => {
+    const v = document.getElementById(`clr-mgr-${i}-hex`)?.value.trim();
+    if (v && /^#[0-9a-fA-F]{6}$/.test(v)) managers[n] = v;
+  });
+  const body = {
+    managers,
+    sum_color:   document.getElementById('clr-sum-hex')?.value.trim() || '#bdd7ee',
+    grand_color: document.getElementById('clr-grand-hex')?.value.trim() || '#ffd966',
+  };
+  await api('PUT', '/api/report/colors', body);
+  panel.style.display = 'none';
+  toast('הצבעים נשמרו', 'success');
+  loadFullReport();
+  loadDailyReport();
+}
+
+function exportReportPDF() {
+  const m = S.reportMonth || '';
+  window.location.href = '/api/report/export/pdf' + (m ? `?month=${m}` : '');
+}
+
+function onDailyDateChange(val) {
+  S.dailyDate = val;
+  S.dailyDateManual = true; // user picked a date — stop auto-following the latest data date
+  loadDailyReport();
+}
+
+async function loadDailyReport() {
+  const el = document.getElementById('daily-report-content');
+  if (!el) return;
+  const date = S.dailyDate;
+  if (!date) { el.innerHTML = ''; return; }
+
+  // date is YYYY-MM-DD from the picker; convert to DD/MM/YYYY for matching stored data
+  const [yr, mo, dy] = date.split('-');
+  const ddmmyyyy = `${dy}/${mo}/${yr}`;
+
+  try {
+    const [workers, shifts, salesData, arnakoData] = await Promise.all([
+      api('GET', '/api/workers'),
+      api('GET', '/api/shifts/saved'),
+      api('GET', '/api/sales'),
+      api('GET', '/api/arnakot'),
+    ]);
+
+    const fmt = n => (n === null || n === undefined || n === '') ? 0 : (n % 1 === 0 ? n : parseFloat(n.toFixed(2)));
+
+    // Any arnakot records exist for this date at all?
+    const arnakotDateExists = (arnakoData || []).some(a => a.date === ddmmyyyy);
+
+    // Shift stats for this date — keyed by the resolved worker when available
+    const shiftStats = {};
+    for (const s of (shifts || [])) {
+      if (s.date !== ddmmyyyy) continue;
+      const name = ((s.worker_key || s.worker_name) || '').trim();
+      if (!name) continue;
+      if (!shiftStats[name]) shiftStats[name] = 0;
+      shiftStats[name] += (parseFloat(s.hours) || 0);
+    }
+
+    // Sales stats for this date
+    const salesStats = {};
+    for (const s of (salesData || [])) {
+      if (s.date !== ddmmyyyy) continue;
+      const name = ((s.first_name || '') + ' ' + (s.last_name || '')).trim();
+      if (!name) continue;
+      if (!salesStats[name]) salesStats[name] = { total: 0, revolving: 0, so: 0, issued: 0 };
+      const st = salesStats[name];
+      if (s.approved)       st.total++;
+      if (s.revolving_1500 || s.revolving_2500 || s.revolving_4000 || s.revolving_4001) st.revolving++;
+      if (s.standing_order) st.so++;
+      if ((s.status_raw || '').trim() === 'הונפק') st.issued++;
+    }
+
+    // Arnakot per worker for this date
+    const arnakoStats = {};
+    for (const a of (arnakoData || [])) {
+      if (a.date !== ddmmyyyy) continue;
+      const name = (a.name || '').trim();
+      if (!name) continue;
+      arnakoStats[name] = (arnakoStats[name] || 0) + 1;
+    }
+
+    const hasData = name => shiftStats[name] || salesStats[name] || arnakoStats[name];
+    const anyData = Object.keys(shiftStats).length || Object.keys(salesStats).length || Object.keys(arnakoStats).length;
+    if (!anyData) {
+      el.innerHTML = `<div class="info">אין נתונים לתאריך ${ddmmyyyy}</div>`;
+      return;
+    }
+
+    // Colors (may already be cached from the monthly report)
+    const colors = S.reportColors || await api('GET', '/api/report/colors') || {};
+    const mgrColors = colors.managers || {};
+    const sumColor   = colors.sum_color || '#bdd7ee';
+    const grandColor = colors.grand_color || '#ffd966';
+
+    const { noManager, orderedGroups } = groupWorkersSorted(workers);
+
+    const dWorkerRow = (w, isMgr, color) => {
+      const name = w.full_name;
+      const hr = shiftStats[name] || 0;
+      const sa = salesStats[name] || { total: 0, revolving: 0, so: 0, issued: 0 };
+      const avg = hr ? fmt(sa.total / hr) : 0;
+      const bg  = (color ? `background:${color};` : '') + (isMgr ? 'font-weight:600' : '');
+      return `<tr style="${bg}">
+        <td>${esc(w.id_number || '')}</td>
+        <td>${esc(name)}</td>
+        <td>${esc(isMgr ? '' : (w.manager || ''))}</td>
+        <td style="text-align:center">${fmt(hr) || 0}</td>
+        <td style="text-align:center">${sa.total}</td>
+        <td style="text-align:center">${sa.revolving}</td>
+        <td style="text-align:center">${sa.so}</td>
+        <td style="text-align:center">${arnakoStats[name] || 0}</td>
+        <td style="text-align:center">${avg}</td>
+        <td style="text-align:center">${sa.issued}</td>
+      </tr>`;
+    };
+
+    const dSumRow = (label, names, color) => {
+      let hr=0, total=0, revolving=0, so=0, arnak=0, issued=0;
+      for (const n of names) {
+        hr += shiftStats[n] || 0;
+        const sa = salesStats[n] || { total: 0, revolving: 0, so: 0, issued: 0 };
+        total += sa.total; revolving += sa.revolving; so += sa.so; issued += sa.issued;
+        arnak += arnakoStats[n] || 0;
+      }
+      const avg = hr ? fmt(total / hr) : 0;
+      return `<tr style="background:${color};font-weight:700;font-size:.8rem">
+        <td colspan="2">${esc(label)}</td><td></td>
+        <td style="text-align:center">${fmt(hr) || 0}</td>
+        <td style="text-align:center">${total}</td>
+        <td style="text-align:center">${revolving}</td>
+        <td style="text-align:center">${so}</td>
+        <td style="text-align:center">${arnak}</td>
+        <td style="text-align:center">${avg}</td>
+        <td style="text-align:center">${issued}</td>
+      </tr>`;
+    };
+
+    let rows = '';
+    const grandNames = [];
+    let activeCount = 0;
+    for (const [mgrName, group] of orderedGroups) {
+      const color = mgrColors[mgrName] || '';
+      const blockNames = [];
+      for (const w of group.workers) {
+        if (hasData(w.full_name)) { rows += dWorkerRow(w, false, color); activeCount++; }
+        blockNames.push(w.full_name);
+      }
+      if (group.managerWorker) {
+        if (hasData(group.managerWorker.full_name)) { rows += dWorkerRow(group.managerWorker, true, color); activeCount++; }
+        blockNames.push(group.managerWorker.full_name);
+      }
+      rows += dSumRow(`סה״כ ${mgrName}`, blockNames, sumColor);
+      grandNames.push(...blockNames);
+    }
+    for (const w of noManager) {
+      if (hasData(w.full_name)) { rows += dWorkerRow(w, false, ''); activeCount++; }
+      grandNames.push(w.full_name);
+    }
+    if (grandNames.length) rows += dSumRow('סה״כ כללי', grandNames, grandColor);
+
+    const th = t => `<th style="white-space:nowrap;font-size:.75rem;padding:.4rem .5rem">${t}</th>`;
+    el.innerHTML = `
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">${activeCount} עובדים פעילים ב-${ddmmyyyy}</div>
+      <div style="overflow-x:auto">
+      <table class="tbl tbl-grid" style="font-size:.8rem">
+        <thead><tr>
+          ${th('ת.ז')}${th('שם עובד')}${th('מנהל')}${th('שעות')}
+          ${th('סה״כ מכירות')}${th('חחקים')}${th('הו״ק')}${th(arnakotDateExists ? 'ארנוקים עודכן' : 'ארנוקים לא מעודכן')}
+          ${th('ממוצע מכירות/שעה')}${th('הנפקות')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+async function loadSales() {
+  const wrap = document.getElementById('sales-table-wrap');
+  if (!wrap) return;
+  const rows = await api('GET', '/api/sales');
+  if (!rows || !rows.length) {
+    wrap.innerHTML = '<div class="info" style="margin-top:0">אין נתוני מכירות. העלה קובץ Excel.</div>';
+    return;
+  }
+  const statusIcon = r => r.approved ? '✅' : '❌';
+  const bool = v => v ? '✔' : '';
+  wrap.innerHTML = `
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem">${rows.length} רשומות</div>
+    <div style="overflow-x:auto">
+    <table class="tbl" style="font-size:.78rem;min-width:900px">
+      <thead><tr>
+        <th>מס׳</th><th>תאריך</th><th>סניף</th><th>שם פרטי</th><th>שם משפחה</th>
+        <th>הו״ק</th><th>עד 1500</th><th>1501-2500</th><th>2501-4000</th><th>מעל 4001</th><th>סטטוס</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td>${esc(r.sale_number)}</td>
+          <td>${esc(r.date)}</td>
+          <td>${esc(r.branch)}</td>
+          <td>${esc(r.first_name)}</td>
+          <td>${esc(r.last_name)}</td>
+          <td style="text-align:center">${bool(r.standing_order)}</td>
+          <td style="text-align:center">${bool(r.revolving_1500)}</td>
+          <td style="text-align:center">${bool(r.revolving_2500)}</td>
+          <td style="text-align:center">${bool(r.revolving_4000)}</td>
+          <td style="text-align:center">${bool(r.revolving_4001)}</td>
+          <td style="text-align:center">${statusIcon(r)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+function sortSaved(col) {
+  if (_savedSort.col === col) _savedSort.dir *= -1;
+  else { _savedSort.col = col; _savedSort.dir = 1; }
+  renderSavedShifts(_savedRows);
+}
+
+function renderSavedShifts(rows) {
+  _savedRows = rows;
+  const el = document.getElementById('saved-shifts-content');
+  if (!el) return;
+
+  const STATUS_BG    = {ok:'var(--green-bg)', gap:'var(--yellow-bg)', missing_msg:'var(--orange-bg)', missing_excel:'var(--red-bg)'};
+  const STATUS_LABEL = {ok:'✅ תקין', gap:'⚠️ פער', missing_msg:'🟠 חסר בהודעה', missing_excel:'🔴 חסר באקסל'};
+
+  // Sort
+  const sorted = [...rows].sort((a, b) => {
+    let va = String(a[_savedSort.col] ?? '');
+    let vb = String(b[_savedSort.col] ?? '');
+    if (_savedSort.col === 'hours') { va = parseFloat(a.hours)||0; vb = parseFloat(b.hours)||0; return (va-vb)*_savedSort.dir; }
+    return va.localeCompare(vb, 'he') * _savedSort.dir;
+  });
+
+  const arrow = col => {
+    if (_savedSort.col !== col) return `<span style="color:var(--border);font-size:.7rem;margin-right:.2rem">⇅</span>`;
+    return `<span style="font-size:.7rem;margin-right:.2rem">${_savedSort.dir===1?'↑':'↓'}</span>`;
+  };
+  const th = (label, col) =>
+    `<th style="padding:.4rem .6rem;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none" onclick="sortSaved('${col}')">${label}${arrow(col)}</th>`;
+  const thCb = `<th style="padding:.4rem .6rem;border-bottom:1px solid var(--border);width:2rem"><input type="checkbox" id="cb-all" onchange="toggleAllCb(this.checked)" title="בחר הכל"></th>`;
+
+  const dateFilter = document.getElementById('saved-date-filter')?.value || '';
+  const nameFilter = document.getElementById('saved-name-filter')?.value || '';
+  const exportParams = [dateFilter&&`date=${encodeURIComponent(dateFilter)}`, nameFilter&&`name=${encodeURIComponent(nameFilter)}`].filter(Boolean).join('&');
+  const exportUrl = '/api/shifts/saved/export' + (exportParams ? '?' + exportParams : '');
+
+  el.innerHTML = `
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <input id="saved-date-filter" type="text" placeholder="סנן לפי תאריך (לדוג׳ 15/06)" oninput="loadSavedShifts()" value="${esc(dateFilter)}"
+        style="padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);width:160px">
+      <input id="saved-name-filter" type="text" placeholder="סנן לפי שם עובד" oninput="loadSavedShifts()" value="${esc(nameFilter)}"
+        style="padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);width:180px">
+      <button class="btn btn-outline" style="font-size:.82rem" onclick="addSavedShiftRow()">➕ הוסף שורה</button>
+      <button class="btn btn-outline" style="font-size:.82rem" onclick="recalcSavedShifts()" title="חישוב מחדש של זיהוי עובד וסניף לכל השורות">🔄 חשב מחדש</button>
+      <a href="${exportUrl}" class="btn btn-outline" style="font-size:.82rem">⬇️ הורד Excel</a>
+      <span style="font-size:.8rem;color:var(--muted);margin-right:auto">${rows.length} שורות</span>
+      <button class="btn btn-outline" id="bulk-delete-btn" style="font-size:.82rem;color:var(--red);display:none" onclick="bulkDeleteSaved()">🗑️ מחק נבחרים</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead>
+          <tr style="background:var(--surface);text-align:right">
+            ${thCb}${th('סטטוס','status')}${th('תאריך','date')}${th('שם עובד','worker_name')}
+            ${th('עובד מזוהה','worker_key')}${th('מקום','workplace')}${th('סניף מזוהה','branch_key')}
+            ${th('התחלה','start_time')}${th('סיום','end_time')}
+            ${th('שעות','hours')}${th('הערות','notes')}
+            <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
+          </tr>
+        </thead>
+        <tbody id="saved-tbody">
+          ${sorted.map(r => savedRowHtml(r, STATUS_BG, STATUS_LABEL)).join('')}
+        </tbody>
+      </table>
+      ${rows.length === 0 ? '<div class="info" style="margin-top:.6rem">אין נתונים שמורים</div>' : ''}
+    </div>`;
+}
+
+function connectCell(val) {
+  return val
+    ? `<td style="padding:.4rem .6rem">${esc(val)}</td>`
+    : `<td style="padding:.4rem .6rem;color:var(--red);font-weight:600;white-space:nowrap">⚠️ לא מזוהה</td>`;
+}
+
+function savedRowHtml(r, STATUS_BG, STATUS_LABEL) {
+  const bg = STATUS_BG[r.status] || 'transparent';
+  const label = STATUS_LABEL[r.status] || r.status || '';
+  return `<tr id="row-${r.id}" style="background:${bg};border-bottom:1px solid var(--border)">
+    <td style="padding:.4rem .6rem"><input type="checkbox" class="saved-cb" data-id="${r.id}" onclick="handleCbClick(event, this)"></td>
+    <td style="padding:.4rem .6rem">${label}</td>
+    <td style="padding:.4rem .6rem">${esc(r.date||'')}</td>
+    <td style="padding:.4rem .6rem;font-weight:600">${esc(r.worker_name||'')}</td>
+    ${connectCell(r.worker_key)}
+    <td style="padding:.4rem .6rem">${esc(r.workplace||'')}</td>
+    ${connectCell(r.branch_key)}
+    <td style="padding:.4rem .6rem">${esc(r.start_time||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(r.end_time||'')}</td>
+    <td style="padding:.4rem .6rem">${r.hours!=null?Number(r.hours).toFixed(1):''}</td>
+    <td style="padding:.4rem .6rem;color:var(--muted)">${esc(r.notes||'')}</td>
+    <td style="padding:.4rem .6rem;white-space:nowrap">
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem" onclick="editSavedRow('${r.id}')">✏️</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem;color:var(--red)" onclick="deleteSavedRow('${r.id}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+// Shared edit-mode row for editing an existing line (isNew=false) or adding one (isNew=true)
+function savedEditRowHtml(r, isNew) {
+  const inp = (name, val, w='90px') =>
+    `<input value="${esc(val||'')}" data-field="${name}" style="width:${w};padding:.2rem .3rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
+  const sel = (name, val, options) => `
+    <select data-field="${name}" style="max-width:130px;font-size:.8rem;padding:.2rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text)">
+      <option value="">— לא מזוהה —</option>
+      ${options.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`).join('')}
+    </select>`;
+  const workerOpts = _savedWorkers.map(w => w.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he'));
+  // Mirror the server's _normalize_branch_label so manual picks match stored branch keys
+  const normBranchLabel = b => {
+    let num = String(b.number||'').trim();
+    num = num.replace(/^0+/, '') || (num ? '0' : '');
+    const name = String(b.name||'').trim().replace(/\s+/g, ' ');
+    return `${num} - ${name}`.replace(/^[\s-]+|[\s-]+$/g, '');
+  };
+  const branchOpts = _savedBranches.map(normBranchLabel).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he',{numeric:true}));
+  const statusSel = `
+    <select data-field="status" style="font-size:.8rem;padding:.2rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text)">
+      ${[['ok','✅ תקין'],['gap','⚠️ פער'],['missing_msg','🟠 חסר בהודעה'],['missing_excel','🔴 חסר באקסל']]
+        .map(([v,l]) => `<option value="${v}" ${v===(r.status||'ok')?'selected':''}>${l}</option>`).join('')}
+    </select>`;
+  const saveCall = isNew ? 'saveNewSavedRow()' : `saveSavedRow('${r.id}')`;
+  return `
+    <td style="padding:.3rem .4rem"></td>
+    <td style="padding:.3rem .4rem">${statusSel}</td>
+    <td style="padding:.3rem .4rem">${inp('date', r.date, '80px')}</td>
+    <td style="padding:.3rem .4rem">${inp('worker_name', r.worker_name, '110px')}</td>
+    <td style="padding:.3rem .4rem">${sel('worker_key', r.worker_key||'', workerOpts)}</td>
+    <td style="padding:.3rem .4rem">${inp('workplace', r.workplace, '90px')}</td>
+    <td style="padding:.3rem .4rem">${sel('branch_key', r.branch_key||'', branchOpts)}</td>
+    <td style="padding:.3rem .4rem">${inp('start_time', r.start_time, '60px')}</td>
+    <td style="padding:.3rem .4rem">${inp('end_time', r.end_time, '60px')}</td>
+    <td style="padding:.3rem .4rem">${inp('hours', r.hours!=null?r.hours:'', '50px')}</td>
+    <td style="padding:.3rem .4rem">${inp('notes', r.notes, '120px')}</td>
+    <td style="padding:.3rem .4rem;white-space:nowrap">
+      <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="${saveCall}">שמור</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="loadSavedShifts()">ביטול</button>
+    </td>`;
+}
+
+function editSavedRow(id) {
+  const tr = document.getElementById('row-' + id);
+  const r = _savedRows.find(x => x.id === id);
+  if (!tr || !r) return;
+  tr.innerHTML = savedEditRowHtml(r, false);
+}
+
+function addSavedShiftRow() {
+  const tbody = document.getElementById('saved-tbody');
+  if (!tbody) return;
+  document.getElementById('new-saved-row')?.remove();
+  const today = new Date();
+  const blank = {
+    status: 'ok',
+    date: `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`,
+    worker_name: '', worker_key: '', workplace: '', branch_key: '',
+    start_time: '', end_time: '', hours: '', notes: '',
+  };
+  const tr = document.createElement('tr');
+  tr.id = 'new-saved-row';
+  tr.style.borderBottom = '1px solid var(--border)';
+  tr.innerHTML = savedEditRowHtml(blank, true);
+  tbody.prepend(tr);
+  tr.querySelector('[data-field="worker_name"]')?.focus();
+}
+
+function collectSavedRowData(tr) {
+  const data = {};
+  tr.querySelectorAll('[data-field]').forEach(el => { data[el.dataset.field] = el.value; });
+  data.hours = parseFloat(data.hours) || null;
+  return data;
+}
+
+async function saveNewSavedRow() {
+  const tr = document.getElementById('new-saved-row');
+  if (!tr) return;
+  const data = collectSavedRowData(tr);
+  if (!data.worker_name && !data.date) { toast('יש למלא לפחות שם עובד או תאריך', 'error'); return; }
+  await api('POST', '/api/shifts/saved', [data]);
+  await loadSavedShifts();
+}
+
+async function saveSavedRow(id) {
+  const tr = document.getElementById('row-' + id);
+  const data = { id, ...collectSavedRowData(tr) };
+  await api('PUT', `/api/shifts/saved/${id}`, data);
+  await loadSavedShifts();
+}
+
+async function deleteSavedRow(id) {
+  if (!confirm('למחוק שורה זו?')) return;
+  await api('DELETE', `/api/shifts/saved/${id}`);
+  await loadSavedShifts();
+}
+
+async function fetchFromGmail() {
+  const btn = document.getElementById('fetch-gmail-btn');
+  const dateVal = document.getElementById('gmail-date')?.value;
+  // Email is sent 1 day after the Excel date, so search for date+1
+  let dateFmt = '';
+  if (dateVal) {
+    const d = new Date(dateVal);
+    d.setDate(d.getDate() + 1);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    dateFmt = `${dd}-${mm}-${yyyy}`;
+  }
+  btn.textContent = '⏳ מושך...';
+  btn.disabled = true;
+  try {
+    const res = await api('POST', '/api/shifts/fetch-from-gmail', { date: dateFmt });
+    if (res?.ok) {
+      const r = await fetch(`/api/shifts/download/${res.token}`, { credentials: 'same-origin' });
+      const blob = await r.blob();
+      const file = new File([blob], res.filename, { type: blob.type });
+      handleFile(file);
+      toast(`✅ קובץ "${res.filename}" נטען ממייל`, 'success');
+    }
+  } catch(e) {
+    toast(`שגיאה: ${e.message}`, 'error');
+  } finally {
+    btn.textContent = '📥 משוך קובץ ממייל';
+    btn.disabled = false;
+  }
 }
 
 function handleFile(file) {
   if (!file) return;
   _shiftsFile = file;
+  _gmailToken = null;
   document.getElementById('file-name').textContent = `✅ ${file.name}`;
 }
 
@@ -1014,7 +3419,7 @@ function findSuspiciousLines(text) {
 async function runCompare() {
   const msg = document.getElementById('sh-msg').value.trim();
   if (!msg) { toast('נא להדביק הודעת וואטסאפ', 'error'); return; }
-  if (!_shiftsFile) { toast('נא להעלות קובץ אקסל', 'error'); return; }
+  if (!_shiftsFile && !_gmailToken) { toast('נא להעלות קובץ אקסל', 'error'); return; }
 
   const suspicious = findSuspiciousLines(msg);
   if (suspicious.length > 0) {
@@ -1042,9 +3447,12 @@ async function doCompare() {
   const el = document.getElementById('shifts-result');
   el.innerHTML = `<div class="info">⏳ משווה נתונים...</div>`;
 
+  if (!_shiftsFile) { toast('נא להעלות קובץ אקסל', 'error'); return; }
+
   const fd = new FormData();
   fd.append('message', msg);
   fd.append('excel', _shiftsFile);
+  fd.append('source', _excelSource);
 
   try {
     const res = await api('POST', '/api/shifts/compare', fd, true);
@@ -1074,21 +3482,26 @@ function renderShiftsResult() {
       <div class="status-card" style="background:var(--orange-bg)"><div class="count" style="color:var(--orange)">${counts.missing_msg||0}</div><div class="label">חסר בהודעה</div></div>
       <div class="status-card" style="background:var(--red-bg)"><div class="count" style="color:var(--red)">${counts.missing_excel||0}</div><div class="label">חסר באקסל</div></div>
     </div>
-    <div style="margin-bottom:1rem">
+    <div style="margin-bottom:1rem;display:flex;gap:.6rem;align-items:center">
       <a href="/api/shifts/download/${S.shiftsToken}" class="btn btn-primary">⬇️ הורד Excel</a>
+      <button class="btn btn-outline" onclick="saveComparison()">💾 שמור השוואה</button>
     </div>
     <hr class="divider">
-    ${r.map(row => {
+    ${r.map((row, i) => {
       const bg = STATUS_BG[row.status] || '#fff';
       const label = STATUS_LABEL[row.status] || row.status;
       const time = row.start_time ? `${row.start_time}–${row.end_time}` : '';
-      return `<div class="result-row" style="background:${bg}">
+      return `<div class="result-row" id="cmp-row-${i}" style="background:${bg};display:flex;align-items:center;gap:.5rem">
         <span class="r-status">${label}</span>
         <span class="r-worker">${esc(row.worker_name)}</span>
         ${row.workplace?`<span style="color:var(--muted)">${esc(row.workplace)}</span>`:''}
         ${row.date?`<span style="color:var(--muted)">${esc(row.date)}</span>`:''}
         ${time?`<span style="color:var(--muted)">${esc(time)}</span>`:''}
         ${row.notes?`<span class="r-notes">${esc(row.notes)}</span>`:''}
+        <span style="margin-right:auto;display:flex;gap:.3rem">
+          <button class="btn btn-outline" style="font-size:.72rem;padding:.1rem .4rem" onclick="editCompareRow(${i})">✏️</button>
+          <button class="btn btn-outline" style="font-size:.72rem;padding:.1rem .4rem;color:var(--red)" onclick="deleteCompareRow(${i})">🗑️</button>
+        </span>
       </div>`;
     }).join('')}`;
 }
@@ -1101,7 +3514,8 @@ function renderShiftsResult() {
     const user = await GET('/api/me');
     if (user) {
       S.user = user;
-      S.activeApp = user.apps[0] || 'tender_scanner';
+      const saved2 = localStorage.getItem('activeApp');
+      S.activeApp = (saved2 && user.apps.includes(saved2)) ? saved2 : (user.apps[0] || 'tender_scanner');
       await initApp();
       showApp();
     } else {
