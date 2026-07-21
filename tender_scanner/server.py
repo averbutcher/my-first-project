@@ -1507,17 +1507,20 @@ async def upload_workers(u: str = Depends(auth), file: UploadFile = File(...)):
 
         # Map column names to internal fields — partial case-insensitive match
         keywords = {
-            "full_name":    ["שם", "name"],
-            "id_number":    ["ז", "id", "עובד", "מספר"],
-            "nickname":     ["כינוי", "nick"],
-            "manager":      ["מנהל", "manager"],
-            "rank":         ["דרגה", "תפקיד", "type", "rank"],
-            "sales_target": ["יעד", "מכירות", "target", "sales"],
+            "full_name":      ["שם", "name"],
+            "id_number":      ["ז", "id", "עובד", "מספר"],
+            "nickname":       ["כינוי", "nick"],
+            "manager":        ["מנהל", "manager"],
+            "rank":           ["דרגה", "תפקיד", "type", "rank"],
+            "sales_target":   ["יעד מכירות", "יעד", "target", "sales"],
+            "arnakot_target": ["יעד ארנוק", "ארנוק"],
         }
         # Build field→column mapping
         field_col: dict[str, str] = {}
         for field, kws in keywords.items():
             for col in df.columns:
+                if col in field_col.values():
+                    continue  # each column serves one field
                 col_l = col.lower()
                 if any(kw.lower() in col_l for kw in kws) and field not in field_col:
                     field_col[field] = col
@@ -1526,7 +1529,7 @@ async def upload_workers(u: str = Depends(auth), file: UploadFile = File(...)):
         # Positional fallback: name, id, nickname, manager, rank, sales_target
         positional = ["full_name", "id_number", "nickname", "manager", "rank", "sales_target"]
         for i, field in enumerate(positional):
-            if field not in field_col and i < len(df.columns):
+            if field not in field_col and i < len(df.columns) and df.columns[i] not in field_col.values():
                 field_col[field] = df.columns[i]
 
         def cell(row, field):
@@ -1536,6 +1539,11 @@ async def upload_workers(u: str = Depends(auth), file: UploadFile = File(...)):
             val = row[col]
             return "" if (val is None or (isinstance(val, float) and pd.isna(val))) else str(val).strip()
 
+        # Preserve UI-assigned salary fields across a re-upload (matched by id, then name)
+        existing = _load_workers(u)
+        prev_by_id   = {w.get("id_number", "").strip(): w for w in existing if w.get("id_number")}
+        prev_by_name = {w.get("full_name", "").strip(): w for w in existing if w.get("full_name")}
+
         workers = []
         for _, row in df.iterrows():
             full_name = cell(row, "full_name")
@@ -1543,14 +1551,18 @@ async def upload_workers(u: str = Depends(auth), file: UploadFile = File(...)):
                 continue
             rank_val = cell(row, "rank").lower()
             rank = "manager" if any(x in rank_val for x in ["מנהל", "manager"]) else "worker"
+            id_number = cell(row, "id_number")
+            prev = prev_by_id.get(id_number) or prev_by_name.get(full_name) or {}
             workers.append({
-                "id":           str(_uuid.uuid4()),
-                "full_name":    full_name,
-                "id_number":    cell(row, "id_number"),
-                "nickname":     cell(row, "nickname"),
-                "manager":      cell(row, "manager"),
-                "rank":         rank,
-                "sales_target": cell(row, "sales_target"),
+                "id":             str(_uuid.uuid4()),
+                "full_name":      full_name,
+                "id_number":      id_number,
+                "nickname":       cell(row, "nickname"),
+                "manager":        cell(row, "manager"),
+                "rank":           rank,
+                "sales_target":   cell(row, "sales_target"),
+                "arnakot_target": cell(row, "arnakot_target") or prev.get("arnakot_target", ""),
+                "salary_model":   prev.get("salary_model", ""),
             })
         _save_workers(u, workers)
         return {"ok": True, "count": len(workers)}
@@ -2671,6 +2683,391 @@ async def get_report_months(u: str = Depends(auth)):
         if ym:
             months.add(ym)
     return sorted(months, reverse=True)
+
+
+# ── Salary models + salary report ───────────────────────────────────────────────
+
+# A salary model holds only *rates*; per-worker targets live on the worker.
+SALARY_MODEL_FIELDS = [
+    "base_hourly",           # שכר לשעה (base 100% rate)
+    "bonus_per_sale",        # בונוס מכירות (per approved sale)
+    "bonus_chk_1500",        # בונוס חחקים עד 1500
+    "bonus_chk_2500",        # בונוס חחקים 1501-2500
+    "bonus_chk_4000",        # בונוס חחקים 2501-4000
+    "bonus_standing_order",  # בונוס הוראות קבע
+    "bonus_arnak_below",     # per ארנוק, when arnakot target NOT reached
+    "bonus_arnak_above",     # per ארנוק, when arnakot target reached
+    "bonus_extra_per_hour",  # per hour worked, only if sales target reached
+    "travel_per_shift",      # נסיעות, per working day
+]
+
+def _salary_models_path(u: str) -> Path:
+    return _udir(u) / "salary_models.json"
+
+def _load_salary_models(u: str) -> list:
+    return _rj(_salary_models_path(u), [])
+
+def _save_salary_models(u: str, models: list):
+    _salary_models_path(u).write_text(json.dumps(models, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def _norm_model(body: dict) -> dict:
+    def num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+    out = {"name": (body.get("name") or "").strip()}
+    for f in SALARY_MODEL_FIELDS:
+        out[f] = num(body.get(f))
+    return out
+
+@app.get("/api/salary/models")
+async def get_salary_models(u: str = Depends(auth)):
+    return _load_salary_models(u)
+
+@app.post("/api/salary/models")
+async def add_salary_model(body: dict, u: str = Depends(auth)):
+    import uuid as _uuid
+    models = _load_salary_models(u)
+    m = _norm_model(body)
+    if not m["name"]:
+        raise HTTPException(400, "שם מודל הוא שדה חובה")
+    m["id"] = str(_uuid.uuid4())
+    models.append(m)
+    _save_salary_models(u, models)
+    return {"ok": True, "model": m}
+
+@app.put("/api/salary/models/{model_id}")
+async def update_salary_model(model_id: str, body: dict, u: str = Depends(auth)):
+    models = _load_salary_models(u)
+    for i, m in enumerate(models):
+        if m.get("id") == model_id:
+            nm = _norm_model(body)
+            nm["id"] = model_id
+            if not nm["name"]:
+                raise HTTPException(400, "שם מודל הוא שדה חובה")
+            models[i] = nm
+            _save_salary_models(u, models)
+            return {"ok": True}
+    raise HTTPException(404, "מודל לא נמצא")
+
+@app.delete("/api/salary/models/{model_id}")
+async def delete_salary_model(model_id: str, u: str = Depends(auth)):
+    models = [m for m in _load_salary_models(u) if m.get("id") != model_id]
+    _save_salary_models(u, models)
+    return {"ok": True}
+
+
+def _salary_settings_path(u: str) -> Path:
+    return _udir(u) / "salary_settings.json"
+
+_DEFAULT_SALARY_SETTINGS = {"closeness": 2, "hours_125": 9, "hours_150": 11}
+
+def _load_salary_settings(u: str) -> dict:
+    return {**_DEFAULT_SALARY_SETTINGS, **_rj(_salary_settings_path(u), {})}
+
+def _save_salary_settings(u: str, s: dict):
+    def num(v, d):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return d
+    clean = {
+        "closeness": num(s.get("closeness"), _DEFAULT_SALARY_SETTINGS["closeness"]),
+        "hours_125": num(s.get("hours_125"), _DEFAULT_SALARY_SETTINGS["hours_125"]),
+        "hours_150": num(s.get("hours_150"), _DEFAULT_SALARY_SETTINGS["hours_150"]),
+    }
+    _salary_settings_path(u).write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
+    return clean
+
+
+def _salary_runs_path(u: str) -> Path:
+    return _udir(u) / "salary_runs.json"
+
+def _load_salary_runs(u: str) -> dict:
+    return _rj(_salary_runs_path(u), {})
+
+def _save_salary_run(u: str, month: str, run: dict):
+    runs = _load_salary_runs(u)
+    runs[month] = run
+    _salary_runs_path(u).write_text(json.dumps(runs, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _salary_aggregate(u: str, month: str) -> dict:
+    """Per-worker monthly aggregates keyed by worker id.
+    Returns {worker_id: {...counts...}} plus the worker record."""
+    workers   = _load_workers(u)
+    shifts    = _load_saved_shifts(u)
+    sales     = _load_sales(u)
+    arnakot   = _load_arnakot(u)
+    resolve   = _worker_resolver(u)
+
+    by_name = {w.get("full_name", "").strip(): w for w in workers if w.get("full_name")}
+
+    def in_month(d):
+        return _date_to_ym(str(d)) == month
+
+    agg: dict = {}
+    def slot(w):
+        wid = w["id"]
+        if wid not in agg:
+            agg[wid] = {
+                "worker": w,
+                "day_hours": {},   # date -> summed hours
+                "approved": 0, "rev1500": 0, "rev2500": 0, "rev4000": 0,
+                "so": 0, "arnakot": 0,
+            }
+        return agg[wid]
+
+    # Hours (by resolved worker, summed per day)
+    for s in shifts:
+        if not in_month(s.get("date", "")):
+            continue
+        key = (s.get("worker_key") or "").strip() or resolve(s.get("worker_name", ""))
+        w = by_name.get(key)
+        if not w:
+            continue
+        d = str(s.get("date", ""))
+        slot(w)["day_hours"][d] = slot(w)["day_hours"].get(d, 0.0) + float(s.get("hours") or 0)
+
+    # Sales
+    for s in sales:
+        if not in_month(s.get("date", "")):
+            continue
+        name = ((s.get("first_name") or "") + " " + (s.get("last_name") or "")).strip()
+        w = by_name.get(resolve(name))
+        if not w:
+            continue
+        st = slot(w)
+        if s.get("approved"):       st["approved"] += 1
+        if s.get("revolving_1500"): st["rev1500"]  += 1
+        if s.get("revolving_2500"): st["rev2500"]  += 1
+        if s.get("revolving_4000"): st["rev4000"]  += 1
+        if s.get("standing_order"): st["so"]       += 1
+
+    # Arnakot
+    for a in arnakot:
+        if not in_month(a.get("date", "")):
+            continue
+        w = by_name.get(resolve(a.get("name", "")))
+        if not w:
+            continue
+        slot(w)["arnakot"] += 1
+
+    return agg
+
+
+def _num(v, d=0.0):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return d
+
+
+def _compute_salary(u: str, month: str, settings: dict, overrides: dict, manager_bonuses: dict):
+    """Returns list of per-worker salary rows (one per worker that has a model)."""
+    models_by_id = {m["id"]: m for m in _load_salary_models(u)}
+    agg = _salary_aggregate(u, month)
+
+    h125_thr = _num(settings.get("hours_125"), _DEFAULT_SALARY_SETTINGS["hours_125"])
+    h150_thr = _num(settings.get("hours_150"), _DEFAULT_SALARY_SETTINGS["hours_150"])
+    if h150_thr < h125_thr:
+        h150_thr = h125_thr
+
+    rows = []
+    for wid, a in agg.items():
+        w = a["worker"]
+        model = models_by_id.get(w.get("salary_model"))
+        if not model:
+            continue  # only workers with an assigned model get a salary row
+
+        sales_target   = _num(w.get("sales_target"))
+        arnakot_target = _num(w.get("arnakot_target"))
+        approved       = a["approved"]
+        arnakot_cnt    = a["arnakot"]
+
+        auto_sales   = sales_target > 0 and approved >= sales_target
+        auto_arnak   = arnakot_target > 0 and arnakot_cnt >= arnakot_target
+        ov           = overrides.get(wid, {})
+        sales_reached   = ov["sales"]   if isinstance(ov.get("sales"), bool)   else auto_sales
+        arnakot_reached = ov["arnakot"] if isinstance(ov.get("arnakot"), bool) else auto_arnak
+
+        # Daily overtime tiering
+        h100 = h125 = h150 = 0.0
+        for d, dh in a["day_hours"].items():
+            h100 += min(dh, h125_thr)
+            h125 += max(0.0, min(dh, h150_thr) - h125_thr)
+            h150 += max(0.0, dh - h150_thr)
+        total_hours = h100 + h125 + h150
+        working_days = len(a["day_hours"])
+
+        base = _num(model.get("base_hourly"))
+        mgr_bonus = _num(manager_bonuses.get(wid))
+
+        d_travel = _num(model.get("travel_per_shift")) * working_days
+        e_sales  = _num(model.get("bonus_per_sale")) * approved
+        f_chk1   = _num(model.get("bonus_chk_1500")) * a["rev1500"]
+        h_chk2   = _num(model.get("bonus_chk_2500")) * a["rev2500"]
+        i_chk3   = _num(model.get("bonus_chk_4000")) * a["rev4000"]
+        j_so     = _num(model.get("bonus_standing_order")) * a["so"]
+        arnak_rate = _num(model.get("bonus_arnak_above")) if arnakot_reached else _num(model.get("bonus_arnak_below"))
+        k_arnak  = arnak_rate * arnakot_cnt
+        l_extra  = (_num(model.get("bonus_extra_per_hour")) * total_hours) if sales_reached else 0.0
+
+        pay_hours = base * h100 + base * 1.25 * h125 + base * 1.5 * h150
+        total = pay_hours + d_travel + e_sales + f_chk1 + mgr_bonus + h_chk2 + i_chk3 + j_so + k_arnak + l_extra
+
+        rows.append({
+            "worker_id": wid,
+            "id_number": w.get("id_number", ""),
+            "name": w.get("full_name", ""),
+            "model_name": model.get("name", ""),
+            "base_hourly": round(base, 2),
+            "travel": round(d_travel, 2),
+            "bonus_sales": round(e_sales, 2),
+            "bonus_chk1500": round(f_chk1, 2),
+            "manager_bonus": round(mgr_bonus, 2),
+            "bonus_chk2500": round(h_chk2, 2),
+            "bonus_chk4000": round(i_chk3, 2),
+            "bonus_standing_order": round(j_so, 2),
+            "bonus_arnakot": round(k_arnak, 2),
+            "bonus_extra": round(l_extra, 2),
+            "working_days": working_days,
+            "hours_100": round(h100, 2),
+            "hours_125": round(h125, 2),
+            "hours_150": round(h150, 2),
+            "total": round(total, 2),
+            # extra context for the UI
+            "approved_sales": approved, "sales_target": sales_target,
+            "arnakot_count": arnakot_cnt, "arnakot_target": arnakot_target,
+            "sales_reached": sales_reached, "arnakot_reached": arnakot_reached,
+        })
+
+    rows.sort(key=lambda r: r["name"])
+    return rows
+
+
+@app.get("/api/salary/prepare")
+async def salary_prepare(u: str = Depends(auth), month: str = Query(...)):
+    """Per-worker aggregates + auto reached flags + any saved decisions,
+    so the frontend can drive the closeness review before computing."""
+    models = _load_salary_models(u)
+    models_by_id = {m["id"]: m for m in models}
+    agg = _salary_aggregate(u, month)
+
+    workers_out = []
+    for wid, a in agg.items():
+        w = a["worker"]
+        model = models_by_id.get(w.get("salary_model"))
+        sales_target   = _num(w.get("sales_target"))
+        arnakot_target = _num(w.get("arnakot_target"))
+        workers_out.append({
+            "worker_id": wid,
+            "id_number": w.get("id_number", ""),
+            "name": w.get("full_name", ""),
+            "has_model": bool(model),
+            "model_name": model.get("name", "") if model else "",
+            "sales_target": sales_target,
+            "arnakot_target": arnakot_target,
+            "approved_sales": a["approved"],
+            "arnakot_count": a["arnakot"],
+            "auto_sales_reached": sales_target > 0 and a["approved"] >= sales_target,
+            "auto_arnakot_reached": arnakot_target > 0 and a["arnakot"] >= arnakot_target,
+        })
+    workers_out.sort(key=lambda x: x["name"])
+
+    saved = _load_salary_runs(u).get(month)
+    return {
+        "month": month,
+        "models_exist": bool(models),
+        "settings": _load_salary_settings(u),
+        "workers": workers_out,
+        "saved": saved,
+    }
+
+
+@app.post("/api/salary/compute")
+async def salary_compute(body: dict, u: str = Depends(auth)):
+    from datetime import datetime
+    month = body.get("month")
+    if not month:
+        raise HTTPException(400, "חסר חודש")
+    settings = _save_salary_settings(u, body.get("settings") or {})
+    overrides = body.get("overrides") or {}
+    manager_bonuses = body.get("manager_bonuses") or {}
+    rows = _compute_salary(u, month, settings, overrides, manager_bonuses)
+    run = {
+        "month": month,
+        "settings": settings,
+        "overrides": overrides,
+        "manager_bonuses": manager_bonuses,
+        "rows": rows,
+        "computed_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    if body.get("save", True):
+        _save_salary_run(u, month, run)
+    return run
+
+
+@app.get("/api/salary/export")
+async def salary_export(u: str = Depends(auth), month: str = Query(...)):
+    run = _load_salary_runs(u).get(month)
+    if not run:
+        raise HTTPException(404, "אין חישוב שמור לחודש זה. יש לחשב שכר תחילה.")
+    rows = run.get("rows", [])
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "דוח שכר"
+    ws.sheet_view.rightToLeft = True
+
+    headers = [
+        "ת.ז", "שם עובד", "שכר לשעה", "נסיעות", "בונוס מכירות",
+        "בונוס חחקים עד 1500", "בונוס מנהל", "בונוס חחקים 1501-2500",
+        "בונוס חחקים 2501-4000", "בונוס הוראות קבע", "בונוס ארנוקים",
+        "בונוס אקסטרה", "ימי עבודה", "שעות 100%", "שעות 125%", "שעות 150%",
+        "סה\"כ שכר",
+    ]
+    keys = [
+        "id_number", "name", "base_hourly", "travel", "bonus_sales",
+        "bonus_chk1500", "manager_bonus", "bonus_chk2500",
+        "bonus_chk4000", "bonus_standing_order", "bonus_arnakot",
+        "bonus_extra", "working_days", "hours_100", "hours_125", "hours_150",
+        "total",
+    ]
+    hdr_fill = PatternFill("solid", fgColor="2F5496")
+    hdr_font = Font(bold=True, color="FFFFFF", size=10)
+    center   = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin     = Side(style="thin", color="B0B0B0")
+    border   = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ws.append(headers)
+    for c in ws[1]:
+        c.font = hdr_font; c.fill = hdr_fill; c.alignment = center; c.border = border
+    total_col = len(keys)
+    for r in rows:
+        ws.append([r.get(k, "") for k in keys])
+        for ci, c in enumerate(ws[ws.max_row], 1):
+            c.alignment = center; c.border = border
+            if ci == total_col:
+                c.font = Font(bold=True)
+                c.fill = PatternFill("solid", fgColor="FFF2CC")
+    for col in ws.columns:
+        w = max((len(str(c.value or "")) for c in col), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(w + 3, 22)
+
+    out = Path(tempfile.mktemp(suffix=".xlsx"))
+    wb.save(str(out))
+    data = out.read_bytes()
+    out.unlink(missing_ok=True)
+    fname = f"salary_report_{month}.xlsx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 # ── Recruiter Analysis ────────────────────────────────────────────────────────

@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.3 · made by klod averbutcher</div>
+    <div class="login-ver">v2.4 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.3 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.4 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -1612,9 +1612,10 @@ let _reportsSubTab = 'report';  // last-visited child of the דוחות group
 let _savedSort = { col: 'date', dir: 1 }; // dir: 1=asc, -1=desc
 
 const _dbTabs = [
-  { key: 'workers',  label: '👷 עובדים' },
-  { key: 'branches', label: '🏬 סניפים' },
-  { key: 'holidays', label: '🗓️ חגים' },
+  { key: 'workers',      label: '👷 עובדים' },
+  { key: 'branches',     label: '🏬 סניפים' },
+  { key: 'salarymodels', label: '💼 מודלי שכר' },
+  { key: 'holidays',     label: '🗓️ חגים' },
 ];
 const _reportsTabs = [
   { key: 'report',       label: '📊 דוח מכירות' },
@@ -1622,7 +1623,7 @@ const _reportsTabs = [
   { key: 'salary',       label: '💵 דוח שכר' },
 ];
 const _tabGroup = {
-  workers: 'databases', branches: 'databases', holidays: 'databases',
+  workers: 'databases', branches: 'databases', salarymodels: 'databases', holidays: 'databases',
   report: 'reports', branchreport: 'reports', salary: 'reports',
 };
 
@@ -1686,6 +1687,12 @@ function renderShiftsApp() {
     return;
   }
 
+  if (_shiftsTab === 'salarymodels') {
+    el.innerHTML = tabBar + subTabBar(_dbTabs, 'salarymodels') + `<div id="salary-models-content"><div class="info">טוען...</div></div>`;
+    loadSalaryModels();
+    return;
+  }
+
   if (_shiftsTab === 'branchreport') {
     el.innerHTML = tabBar + subTabBar(_reportsTabs, 'branchreport') + `
       <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
@@ -1699,11 +1706,8 @@ function renderShiftsApp() {
   }
 
   if (_shiftsTab === 'salary') {
-    el.innerHTML = tabBar + subTabBar(_reportsTabs, 'salary') + `
-      <div class="info" style="text-align:center;padding:3rem 1rem;font-size:1rem">
-        💵 דוח שכר<br>
-        <span style="color:var(--muted);font-size:.85rem">בקרוב...</span>
-      </div>`;
+    el.innerHTML = tabBar + subTabBar(_reportsTabs, 'salary') + `<div id="salary-report-content"><div class="info">טוען...</div></div>`;
+    setTimeout(initSalaryReport, 0);
     return;
   }
 
@@ -2002,9 +2006,19 @@ let _savedWorkers = [];  // workers list for the connect dropdown
 let _savedBranches = []; // branches list for the connect dropdown
 let _workersSort = { col: 'full_name', dir: 1 };
 
+let _workersCache = [];       // last-loaded workers, for edit-from-cache
+let _salaryModelsCache = [];   // salary models, for the worker model dropdown
+
 async function loadWorkers() {
-  const rows = await GET('/api/workers');
-  renderWorkersTable(rows || []);
+  const [rows, models] = await Promise.all([GET('/api/workers'), GET('/api/salary/models')]);
+  _workersCache = rows || [];
+  _salaryModelsCache = models || [];
+  renderWorkersTable(_workersCache);
+}
+
+function modelName(id) {
+  const m = _salaryModelsCache.find(x => x.id === id);
+  return m ? m.name : '';
 }
 
 function renderWorkersTable(workers) {
@@ -2014,7 +2028,7 @@ function renderWorkersTable(workers) {
   const sorted = [...workers].sort((a, b) => {
     const va = String(a[_workersSort.col] ?? '');
     const vb = String(b[_workersSort.col] ?? '');
-    if (_workersSort.col === 'sort_order' || _workersSort.col === 'sales_target') {
+    if (['sort_order','sales_target','arnakot_target'].includes(_workersSort.col)) {
       return ((parseFloat(va) || Infinity) - (parseFloat(vb) || Infinity)) * _workersSort.dir;
     }
     return va.localeCompare(vb, 'he') * _workersSort.dir;
@@ -2042,7 +2056,8 @@ function renderWorkersTable(workers) {
       <table style="width:100%;border-collapse:collapse;font-size:.82rem">
         <thead><tr style="background:var(--surface);text-align:right">
           ${th('שם מלא','full_name')}${th('ת.ז','id_number')}${th('כינוי','nickname')}
-          ${th('מנהל','manager')}${th('דרגה','rank')}${th('יעד מכירות','sales_target')}${th('מסד','sort_order')}
+          ${th('מנהל','manager')}${th('דרגה','rank')}${th('יעד מכירות','sales_target')}
+          ${th('יעד ארנוקים','arnakot_target')}${th('מודל שכר','salary_model')}${th('מסד','sort_order')}
           <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
         </tr></thead>
         <tbody>
@@ -2055,10 +2070,11 @@ function renderWorkersTable(workers) {
 function sortWorkers(col) {
   if (_workersSort.col === col) _workersSort.dir *= -1;
   else { _workersSort.col = col; _workersSort.dir = 1; }
-  loadWorkers();
+  renderWorkersTable(_workersCache);
 }
 
 function workerRowHtml(w) {
+  const mName = modelName(w.salary_model);
   return `<tr id="wrow-${w.id}" style="border-bottom:1px solid var(--border)">
     <td style="padding:.4rem .6rem;font-weight:600">${esc(w.full_name||'')}</td>
     <td style="padding:.4rem .6rem">${esc(w.id_number||'')}</td>
@@ -2066,6 +2082,8 @@ function workerRowHtml(w) {
     <td style="padding:.4rem .6rem">${esc(w.manager||'')}</td>
     <td style="padding:.4rem .6rem">${w.rank==='manager'?'👔 מנהל':'👤 עובד'}</td>
     <td style="padding:.4rem .6rem">${esc(w.sales_target||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(w.arnakot_target||'')}</td>
+    <td style="padding:.4rem .6rem">${mName ? esc(mName) : '<span style="color:var(--muted)">—</span>'}</td>
     <td style="padding:.4rem .6rem">${esc(w.sort_order||'')}</td>
     <td style="padding:.4rem .6rem;white-space:nowrap">
       <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem" onclick="editWorkerRow('${w.id}')">✏️</button>
@@ -2079,6 +2097,8 @@ function workerFieldsHtml(w) {
     `<input value="${esc(val||'')}" data-field="${field}" placeholder="${placeholder}"
       style="width:${w2};padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
   const rank = w.rank || 'worker';
+  const modelOpts = _salaryModelsCache.map(m =>
+    `<option value="${esc(m.id)}" ${m.id===w.salary_model?'selected':''}>${esc(m.name)}</option>`).join('');
   return `
     ${inp('full_name', w.full_name, 'שם מלא', '140px')}
     ${inp('id_number', w.id_number, 'ת.ז', '90px')}
@@ -2089,6 +2109,11 @@ function workerFieldsHtml(w) {
       <option value="manager" ${rank==='manager'?'selected':''}>👔 מנהל</option>
     </select>
     ${inp('sales_target', w.sales_target, 'יעד מכירות', '90px')}
+    ${inp('arnakot_target', w.arnakot_target, 'יעד ארנוקים', '90px')}
+    <select data-field="salary_model" title="מודל שכר" style="padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+      <option value="">— ללא מודל —</option>
+      ${modelOpts}
+    </select>
     ${inp('sort_order', w.sort_order, 'מסד', '60px')}`;
 }
 
@@ -2115,29 +2140,24 @@ async function submitAddWorker() {
 
 function editWorkerRow(id) {
   const tr = document.getElementById('wrow-' + id);
-  if (!tr) return;
-  const cells = tr.querySelectorAll('td');
-  const rankCell = cells[4].textContent.trim();
-  const w = { full_name: cells[0].textContent.trim(), id_number: cells[1].textContent.trim(),
-               nickname: cells[2].textContent.trim(), manager: cells[3].textContent.trim(),
-               rank: rankCell.includes('מנהל') ? 'manager' : 'worker',
-               sales_target: cells[5].textContent.trim(),
-               sort_order: cells[6].textContent.trim() };
+  const w = _workersCache.find(x => x.id === id);
+  if (!tr || !w) return;
   tr.innerHTML = `
-    <td colspan="6" style="padding:.3rem .4rem">
+    <td colspan="9" style="padding:.3rem .4rem">
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
         ${workerFieldsHtml(w)}
       </div>
     </td>
     <td style="padding:.3rem .4rem;white-space:nowrap">
       <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="saveWorkerRow('${id}')">שמור</button>
-      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="loadWorkers()">ביטול</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="renderWorkersTable(_workersCache)">ביטול</button>
     </td>`;
 }
 
 async function saveWorkerRow(id) {
   const tr = document.getElementById('wrow-' + id);
-  const data = { id };
+  const prev = _workersCache.find(x => x.id === id) || {};
+  const data = { ...prev, id };
   tr.querySelectorAll('[data-field]').forEach(inp => { data[inp.dataset.field] = inp.value.trim(); });
   await api('PUT', `/api/workers/${id}`, data);
   await loadWorkers();
@@ -2340,6 +2360,151 @@ async function uploadBranchesExcel(input) {
     if (status) { status.style.color = 'var(--red)'; status.textContent = `❌ שגיאה: ${e.message}`; }
   }
   input.value = '';
+}
+
+// ── Salary models tab ────────────────────────────────────────────────────────
+
+let _salaryModels = [];
+
+// [field, label] — order defines the edit-form layout
+const SALARY_MODEL_FIELDS = [
+  ['base_hourly',          'שכר לשעה'],
+  ['bonus_per_sale',       'בונוס מכירות'],
+  ['bonus_chk_1500',       'חחק עד 1500'],
+  ['bonus_chk_2500',       'חחק 1501-2500'],
+  ['bonus_chk_4000',       'חחק 2501-4000'],
+  ['bonus_standing_order', 'הוראות קבע'],
+  ['bonus_arnak_below',    'ארנוק מתחת ליעד'],
+  ['bonus_arnak_above',    'ארנוק מעל היעד'],
+  ['bonus_extra_per_hour', 'בונוס אקסטרה לשעה'],
+  ['travel_per_shift',     'נסיעות למשמרת'],
+];
+
+async function loadSalaryModels() {
+  _salaryModels = await GET('/api/salary/models') || [];
+  renderSalaryModels();
+}
+
+function renderSalaryModels() {
+  const el = document.getElementById('salary-models-content');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <button class="btn btn-primary" style="font-size:.82rem" onclick="showAddModelForm()">+ מודל חדש</button>
+      <span style="font-size:.8rem;color:var(--muted);margin-right:auto">${_salaryModels.length} מודלים</span>
+    </div>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">
+      מודל שכר מגדיר תעריפים בלבד. היעדים (מכירות/ארנוקים) נקבעים לכל עובד בנפרד בטאב 👷 עובדים.
+    </p>
+    <div id="model-form-area"></div>
+    ${_salaryModels.length === 0 ? '<div class="info">אין מודלים. צור מודל חדש.</div>' : `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+        <thead><tr style="background:var(--surface);text-align:right">
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">שם מודל</th>
+          ${SALARY_MODEL_FIELDS.map(([,l]) => `<th style="padding:.4rem .5rem;border-bottom:1px solid var(--border);white-space:nowrap">${l}</th>`).join('')}
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
+        </tr></thead>
+        <tbody>
+          ${_salaryModels.map(m => salaryModelRowHtml(m)).join('')}
+        </tbody>
+      </table>
+    </div>`}`;
+}
+
+function salaryModelRowHtml(m) {
+  return `<tr id="mrow-${m.id}" style="border-bottom:1px solid var(--border)">
+    <td style="padding:.4rem .6rem;font-weight:600">${esc(m.name||'')}</td>
+    ${SALARY_MODEL_FIELDS.map(([f]) => `<td style="padding:.4rem .5rem;text-align:center">${fmtNum(m[f])}</td>`).join('')}
+    <td style="padding:.4rem .6rem;white-space:nowrap">
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem" onclick="editModelRow('${m.id}')">✏️</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem;color:var(--red)" onclick="deleteModel('${m.id}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+function fmtNum(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? '0' : (n % 1 === 0 ? String(n) : n.toFixed(2));
+}
+
+function modelFieldsHtml(m) {
+  const numInp = (field, val) =>
+    `<input type="number" step="any" value="${val!=null&&val!==''?val:''}" data-field="${field}" placeholder="0"
+      style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
+  return `
+    <div style="display:flex;flex-direction:column;gap:.15rem">
+      <label style="font-size:.72rem;color:var(--muted)">שם מודל</label>
+      <input value="${esc(m.name||'')}" data-field="name" placeholder="שם מודל"
+        style="width:140px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+    </div>
+    ${SALARY_MODEL_FIELDS.map(([f,l]) => `
+      <div style="display:flex;flex-direction:column;gap:.15rem">
+        <label style="font-size:.72rem;color:var(--muted)">${l}</label>
+        ${numInp(f, m[f])}
+      </div>`).join('')}`;
+}
+
+function showAddModelForm() {
+  const area = document.getElementById('model-form-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div style="padding:.7rem .9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+      <div style="font-size:.82rem;font-weight:600;margin-bottom:.6rem">מודל חדש</div>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+        ${modelFieldsHtml({})}
+      </div>
+      <div style="margin-top:.7rem;display:flex;gap:.4rem">
+        <button class="btn btn-primary" style="font-size:.78rem;padding:.2rem .7rem" onclick="submitAddModel()">שמור מודל</button>
+        <button class="btn btn-outline" style="font-size:.78rem;padding:.2rem .7rem" onclick="document.getElementById('model-form-area').innerHTML=''">ביטול</button>
+      </div>
+    </div>`;
+}
+
+function collectModelData(container) {
+  const data = {};
+  container.querySelectorAll('[data-field]').forEach(inp => {
+    data[inp.dataset.field] = inp.dataset.field === 'name' ? inp.value.trim() : (parseFloat(inp.value) || 0);
+  });
+  return data;
+}
+
+async function submitAddModel() {
+  const area = document.getElementById('model-form-area');
+  const data = collectModelData(area);
+  if (!data.name) { toast('שם מודל הוא שדה חובה', 'error'); return; }
+  await api('POST', '/api/salary/models', data);
+  await loadSalaryModels();
+}
+
+function editModelRow(id) {
+  const tr = document.getElementById('mrow-' + id);
+  const m = _salaryModels.find(x => x.id === id);
+  if (!tr || !m) return;
+  tr.innerHTML = `
+    <td colspan="${SALARY_MODEL_FIELDS.length + 1}" style="padding:.4rem .6rem">
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+        ${modelFieldsHtml(m)}
+      </div>
+    </td>
+    <td style="padding:.4rem .6rem;white-space:nowrap;vertical-align:bottom">
+      <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="saveModelRow('${id}')">שמור</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="renderSalaryModels()">ביטול</button>
+    </td>`;
+}
+
+async function saveModelRow(id) {
+  const tr = document.getElementById('mrow-' + id);
+  const data = collectModelData(tr);
+  if (!data.name) { toast('שם מודל הוא שדה חובה', 'error'); return; }
+  await api('PUT', `/api/salary/models/${id}`, data);
+  await loadSalaryModels();
+}
+
+async function deleteModel(id) {
+  if (!confirm('למחוק מודל זה? עובדים המשויכים אליו יישארו ללא מודל.')) return;
+  await api('DELETE', `/api/salary/models/${id}`);
+  await loadSalaryModels();
 }
 
 // ── Branch report tab ────────────────────────────────────────────────────────
@@ -3165,6 +3330,242 @@ async function loadDailyReport() {
   } catch(e) {
     el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
   }
+}
+
+// ── Salary report tab ────────────────────────────────────────────────────────
+
+let _salaryState = {
+  month: null,
+  prepare: null,          // /api/salary/prepare response
+  overrides: {},          // worker_id -> {sales:bool, arnakot:bool}
+  managerBonuses: {},     // worker_id -> number
+  showManagerBonus: false,
+};
+
+async function initSalaryReport() {
+  const el = document.getElementById('salary-report-content');
+  if (!el) return;
+  const months = await api('GET', '/api/report/months') || [];
+  if (!months.length) {
+    el.innerHTML = '<div class="info">אין נתונים. יש להעלות מכירות/שעות תחילה.</div>';
+    return;
+  }
+  if (!_salaryState.month || !months.includes(_salaryState.month)) _salaryState.month = months[0];
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
+      <select id="salary-month" class="sb-input" style="width:auto;min-width:140px" onchange="onSalaryMonthChange(this.value)">
+        ${months.map(m => `<option value="${m}" ${m===_salaryState.month?'selected':''}>${fmtMonth(m)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="salary-body"><div class="info">טוען...</div></div>`;
+  await loadSalaryPrepare();
+}
+
+async function onSalaryMonthChange(val) {
+  _salaryState.month = val;
+  _salaryState.overrides = {};
+  _salaryState.managerBonuses = {};
+  _salaryState.showManagerBonus = false;
+  await loadSalaryPrepare();
+}
+
+async function loadSalaryPrepare() {
+  const body = document.getElementById('salary-body');
+  if (!body) return;
+  const data = await api('GET', `/api/salary/prepare?month=${encodeURIComponent(_salaryState.month)}`);
+  _salaryState.prepare = data;
+  // Seed decisions from a saved run for this month, if any
+  if (data.saved) {
+    _salaryState.overrides = data.saved.overrides || {};
+    _salaryState.managerBonuses = data.saved.managerBonuses || data.saved.manager_bonuses || {};
+    _salaryState.showManagerBonus = Object.keys(_salaryState.managerBonuses).length > 0;
+  }
+  renderSalaryBody();
+}
+
+function salarySettingsFromInputs() {
+  const g = id => parseFloat(document.getElementById(id)?.value);
+  const s = _salaryState.prepare?.settings || {};
+  return {
+    closeness: isNaN(g('sal-closeness')) ? s.closeness : g('sal-closeness'),
+    hours_125: isNaN(g('sal-h125')) ? s.hours_125 : g('sal-h125'),
+    hours_150: isNaN(g('sal-h150')) ? s.hours_150 : g('sal-h150'),
+  };
+}
+
+function renderSalaryBody() {
+  const body = document.getElementById('salary-body');
+  const data = _salaryState.prepare;
+  if (!body || !data) return;
+
+  if (!data.models_exist) {
+    body.innerHTML = '<div class="info">אין מודלי שכר. צור מודלים בטאב 💼 מודלי שכר, ושייך אותם לעובדים.</div>';
+    return;
+  }
+
+  const s = data.settings || {};
+  const noModel = data.workers.filter(w => !w.has_model);
+
+  const settingsHtml = `
+    <div style="padding:.7rem .9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+      <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">⚙️ הגדרות חישוב</div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.72rem;color:var(--muted)">"קרוב ליעד" = עד כמה יחידות מתחת</label>
+          <input id="sal-closeness" type="number" step="any" value="${s.closeness}" onchange="renderSalaryBody()"
+            style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.72rem;color:var(--muted)">שעות ליום מתחילת 125%</label>
+          <input id="sal-h125" type="number" step="any" value="${s.hours_125}"
+            style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.15rem">
+          <label style="font-size:.72rem;color:var(--muted)">שעות ליום מתחילת 150%</label>
+          <input id="sal-h150" type="number" step="any" value="${s.hours_150}"
+            style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+        </div>
+      </div>
+    </div>`;
+
+  // Closeness review — workers below target but within the threshold, per target type
+  const closeness = parseFloat(document.getElementById('sal-closeness')?.value);
+  const thr = isNaN(closeness) ? (s.closeness || 0) : closeness;
+  const closeSales = [], closeArnak = [];
+  for (const w of data.workers) {
+    if (!w.has_model) continue;
+    if (w.sales_target > 0 && !w.auto_sales_reached && (w.sales_target - w.approved_sales) <= thr)
+      closeSales.push(w);
+    if (w.arnakot_target > 0 && !w.auto_arnakot_reached && (w.arnakot_target - w.arnakot_count) <= thr)
+      closeArnak.push(w);
+  }
+
+  const closeRow = (w, kind) => {
+    const cur = _salaryState.overrides[w.worker_id]?.[kind] === true;
+    const actual = kind === 'sales' ? w.approved_sales : w.arnakot_count;
+    const target = kind === 'sales' ? w.sales_target : w.arnakot_target;
+    return `<label style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;font-size:.82rem">
+      <input type="checkbox" ${cur?'checked':''} onchange="setSalaryOverride('${w.worker_id}','${kind}',this.checked)">
+      <span style="font-weight:600">${esc(w.name)}</span>
+      <span style="color:var(--muted)">${actual}/${target} — סמן כדי להעניק כאילו עמד ביעד</span>
+    </label>`;
+  };
+
+  let reviewHtml = '';
+  if (closeSales.length || closeArnak.length) {
+    reviewHtml = `
+      <div style="padding:.7rem .9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+        <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">🎯 עובדים קרובים ליעד (לא עמדו בו)</div>
+        ${closeSales.length ? `<div style="margin-bottom:.5rem"><div style="font-size:.78rem;color:var(--muted);margin-bottom:.2rem">יעד מכירות:</div>${closeSales.map(w=>closeRow(w,'sales')).join('')}</div>` : ''}
+        ${closeArnak.length ? `<div><div style="font-size:.78rem;color:var(--muted);margin-bottom:.2rem">יעד ארנוקים:</div>${closeArnak.map(w=>closeRow(w,'arnakot')).join('')}</div>` : ''}
+      </div>`;
+  } else {
+    reviewHtml = `<div style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">אין עובדים קרובים ליעד (לפי הסף הנוכחי).</div>`;
+  }
+
+  // Manager-bonus section
+  const withModel = data.workers.filter(w => w.has_model);
+  const mgrToggle = `
+    <div style="margin-bottom:1rem">
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:600;cursor:pointer">
+        <input type="checkbox" ${_salaryState.showManagerBonus?'checked':''} onchange="toggleManagerBonus(this.checked)">
+        להוסיף בונוס מנהל לעובדים?
+      </label>
+    </div>`;
+  let mgrHtml = '';
+  if (_salaryState.showManagerBonus) {
+    mgrHtml = `
+      <div style="padding:.7rem .9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+        <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">➕ בונוס מנהל</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.6rem">
+          ${withModel.map(w => `
+            <div style="display:flex;flex-direction:column;gap:.15rem">
+              <label style="font-size:.72rem;color:var(--muted)">${esc(w.name)}</label>
+              <input type="number" step="any" value="${_salaryState.managerBonuses[w.worker_id] ?? ''}" placeholder="0"
+                onchange="setManagerBonus('${w.worker_id}', this.value)"
+                style="width:100px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  const noModelWarn = noModel.length ? `
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:1rem">
+      ⚠️ ${noModel.length} עובדים עם נתונים החודש ללא מודל שכר (לא ייכללו): ${noModel.map(w=>esc(w.name)).join(', ')}
+    </div>` : '';
+
+  const savedNote = data.saved ? `<span style="font-size:.75rem;color:var(--muted)">חושב לאחרונה: ${esc((data.saved.computed_at||'').replace('T',' '))}</span>` : '';
+
+  body.innerHTML = settingsHtml + reviewHtml + mgrToggle + mgrHtml + noModelWarn + `
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <button class="btn btn-primary" style="font-size:.85rem" onclick="computeSalary()">🧮 חשב שכר</button>
+      ${savedNote}
+    </div>
+    <div id="salary-results"></div>`;
+
+  if (data.saved && data.saved.rows) renderSalaryResults(data.saved.rows);
+}
+
+function setSalaryOverride(wid, kind, val) {
+  if (!_salaryState.overrides[wid]) _salaryState.overrides[wid] = {};
+  _salaryState.overrides[wid][kind] = val;
+}
+function setManagerBonus(wid, val) {
+  const n = parseFloat(val);
+  if (isNaN(n) || n === 0) delete _salaryState.managerBonuses[wid];
+  else _salaryState.managerBonuses[wid] = n;
+}
+function toggleManagerBonus(on) {
+  _salaryState.showManagerBonus = on;
+  renderSalaryBody();
+}
+
+async function computeSalary() {
+  const res = await api('POST', '/api/salary/compute', {
+    month: _salaryState.month,
+    settings: salarySettingsFromInputs(),
+    overrides: _salaryState.overrides,
+    manager_bonuses: _salaryState.managerBonuses,
+    save: true,
+  });
+  toast('✅ השכר חושב ונשמר', 'success');
+  renderSalaryResults(res.rows || []);
+}
+
+const SALARY_COLS = [
+  ['id_number','ת.ז'], ['name','שם עובד'], ['base_hourly','שכר לשעה'], ['travel','נסיעות'],
+  ['bonus_sales','בונוס מכירות'], ['bonus_chk1500','חחק עד 1500'], ['manager_bonus','בונוס מנהל'],
+  ['bonus_chk2500','חחק 1501-2500'], ['bonus_chk4000','חחק 2501-4000'], ['bonus_standing_order','הו״ק'],
+  ['bonus_arnakot','ארנוקים'], ['bonus_extra','אקסטרה'], ['working_days','ימי עבודה'],
+  ['hours_100','שעות 100%'], ['hours_125','שעות 125%'], ['hours_150','שעות 150%'], ['total','סה״כ שכר'],
+];
+
+function renderSalaryResults(rows) {
+  const el = document.getElementById('salary-results');
+  if (!el) return;
+  if (!rows.length) {
+    el.innerHTML = '<div class="info">אין עובדים עם מודל שכר ונתונים לחודש זה.</div>';
+    return;
+  }
+  const cell = (r, key) => key === 'name' || key === 'id_number'
+    ? esc(r[key] || '')
+    : (key === 'working_days' ? (r[key] || 0) : fmtNum(r[key]));
+  el.innerHTML = `
+    <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.6rem">
+      <a href="/api/salary/export?month=${encodeURIComponent(_salaryState.month)}" class="btn btn-outline" style="font-size:.82rem">⬇️ הורד Excel</a>
+      <span style="font-size:.8rem;color:var(--muted)">${rows.length} עובדים</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl tbl-grid" style="font-size:.78rem;min-width:1100px">
+        <thead><tr>${SALARY_COLS.map(([,l]) => `<th style="white-space:nowrap;padding:.4rem .5rem">${l}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>${SALARY_COLS.map(([k]) => {
+            const isTotal = k === 'total';
+            return `<td style="text-align:${k==='name'?'right':'center'};padding:.35rem .5rem${isTotal?';font-weight:700;background:var(--yellow-bg)':''}">${cell(r,k)}</td>`;
+          }).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 async function loadSales() {
