@@ -2740,9 +2740,57 @@ def _load_gmail_tokens() -> dict:
     return _rj(_GMAIL_TOKENS_FILE, {})
 
 def _save_gmail_token(u: str, tokens: dict):
+    if "expires_in" in tokens:
+        tokens["expires_at"] = time.time() + tokens["expires_in"]
     all_tokens = _load_gmail_tokens()
     all_tokens[u] = tokens
     _GMAIL_TOKENS_FILE.write_text(json.dumps(all_tokens, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def _clear_gmail_token(u: str):
+    all_tokens = _load_gmail_tokens()
+    if u in all_tokens:
+        del all_tokens[u]
+        _GMAIL_TOKENS_FILE.write_text(json.dumps(all_tokens, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def _refresh_gmail_tokens(u: str, tokens: dict) -> Optional[dict]:
+    """Exchange the stored refresh_token for a fresh access_token.
+    Google only returns a refresh_token on the first consent grant, so it's
+    carried over here. Returns None (and clears the stored token) if refresh
+    is impossible or the token was revoked."""
+    import urllib.request, urllib.parse, json as _json
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        _clear_gmail_token(u)
+        return None
+    data = urllib.parse.urlencode({
+        "refresh_token": refresh_token,
+        "client_id": GMAIL_CLIENT_ID,
+        "client_secret": GMAIL_CLIENT_SECRET,
+        "grant_type": "refresh_token",
+    }).encode()
+    req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            new_tokens = _json.loads(resp.read())
+    except Exception:
+        _clear_gmail_token(u)
+        return None
+    new_tokens.setdefault("refresh_token", refresh_token)
+    _save_gmail_token(u, new_tokens)
+    return new_tokens
+
+def _get_valid_gmail_tokens(u: str) -> Optional[dict]:
+    """Returns a token dict with a currently-valid access_token, refreshing
+    proactively when the stored one is missing/near expiry. None means the
+    user genuinely needs to reconnect."""
+    tokens = _load_gmail_tokens().get(u)
+    if not tokens:
+        return None
+    expires_at = tokens.get("expires_at", 0)
+    if expires_at - time.time() > 60:
+        return tokens
+    return _refresh_gmail_tokens(u, tokens)
 
 @app.get("/auth/gmail/connect")
 async def gmail_connect(u: str = Depends(auth)):
@@ -2779,20 +2827,33 @@ async def gmail_callback(code: str, state: str):
 
 @app.get("/auth/gmail/status")
 async def gmail_status(u: str = Depends(auth)):
-    return {"connected": u in _load_gmail_tokens()}
+    return {"connected": bool(_get_valid_gmail_tokens(u))}
 
 @app.post("/api/shifts/fetch-from-gmail")
 async def fetch_shifts_from_gmail(body: dict = {}, u: str = Depends(auth)):
-    import urllib.request, urllib.parse, json as _json, base64
-    tokens = _load_gmail_tokens().get(u)
+    import urllib.request, urllib.parse, urllib.error, json as _json, base64
+    tokens = _get_valid_gmail_tokens(u)
     if not tokens:
-        raise HTTPException(400, "Gmail לא מחובר")
-    access_token = tokens.get("access_token", "")
+        raise HTTPException(400, "Gmail התנתק, יש להתחבר מחדש")
+    access_token = tokens["access_token"]
 
     def gmail_get(url):
+        nonlocal access_token
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
-        with urllib.request.urlopen(req) as r:
-            return _json.loads(r.read())
+        try:
+            with urllib.request.urlopen(req) as r:
+                return _json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if e.code != 401:
+                raise
+            # Access token expired mid-flight — refresh once and retry
+            refreshed = _refresh_gmail_tokens(u, tokens)
+            if not refreshed:
+                raise HTTPException(400, "Gmail התנתק, יש להתחבר מחדש")
+            access_token = refreshed["access_token"]
+            req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
+            with urllib.request.urlopen(req) as r:
+                return _json.loads(r.read())
 
     # Search for email from clock2go, optionally filtered by date in subject
     date_str = body.get("date", "")

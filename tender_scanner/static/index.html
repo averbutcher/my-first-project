@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.2 · made by klod averbutcher</div>
+    <div class="login-ver">v2.3 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.2 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.3 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -1606,8 +1606,31 @@ function renderRecruiterOverview(el){
 let _shiftsFile = null;
 let _gmailToken = null;
 let _excelSource = 'gmail'; // 'upload' or 'gmail'
-let _shiftsTab = 'compare'; // 'compare' | 'saved'
+let _shiftsTab = 'compare'; // 'compare' | 'saved' | 'sales' | one of _dbTabs/_reportsTabs keys
+let _dbSubTab = 'workers';      // last-visited child of the מסדי נתונים group
+let _reportsSubTab = 'report';  // last-visited child of the דוחות group
 let _savedSort = { col: 'date', dir: 1 }; // dir: 1=asc, -1=desc
+
+const _dbTabs = [
+  { key: 'workers',  label: '👷 עובדים' },
+  { key: 'branches', label: '🏬 סניפים' },
+  { key: 'holidays', label: '🗓️ חגים' },
+];
+const _reportsTabs = [
+  { key: 'report',       label: '📊 דוח מכירות' },
+  { key: 'branchreport', label: '🏢 דוח סניפים' },
+  { key: 'salary',       label: '💵 דוח שכר' },
+];
+const _tabGroup = {
+  workers: 'databases', branches: 'databases', holidays: 'databases',
+  report: 'reports', branchreport: 'reports', salary: 'reports',
+};
+
+function subTabBar(items, active) {
+  return `<div class="tabs" style="margin-bottom:1rem;border-bottom:1px solid var(--border)">
+    ${items.map(t => `<div class="tab ${active===t.key?'active':''}" style="font-size:.82rem;padding:.4rem .8rem" onclick="switchShiftsTab('${t.key}')">${t.label}</div>`).join('')}
+  </div>`;
+}
 
 function toggleExcelSource(isGmail) {
   _excelSource = isGmail ? 'gmail' : 'upload';
@@ -1616,23 +1639,25 @@ function toggleExcelSource(isGmail) {
 }
 
 function switchShiftsTab(tab) {
+  if (tab === 'databases') tab = _dbSubTab;
+  else if (tab === 'reports') tab = _reportsSubTab;
   _shiftsTab = tab;
+  if (_tabGroup[tab] === 'databases') _dbSubTab = tab;
+  else if (_tabGroup[tab] === 'reports') _reportsSubTab = tab;
   renderShiftsApp();
   if (tab === 'saved') loadSavedShifts();
 }
 
 function renderShiftsApp() {
   const el = document.getElementById('shifts-content');
+  const activeGroup = _tabGroup[_shiftsTab] || _shiftsTab;
   const tabBar = `
     <div class="tabs" style="margin-bottom:1.2rem">
       <div class="tab ${_shiftsTab==='compare'?'active':''}" onclick="switchShiftsTab('compare')">⚡ השוואה</div>
       <div class="tab ${_shiftsTab==='saved'?'active':''}" onclick="switchShiftsTab('saved')">📋 שעות עובדים</div>
       <div class="tab ${_shiftsTab==='sales'?'active':''}" onclick="switchShiftsTab('sales')">💰 מכירות</div>
-      <div class="tab ${_shiftsTab==='workers'?'active':''}" onclick="switchShiftsTab('workers')">👷 עובדים</div>
-      <div class="tab ${_shiftsTab==='branches'?'active':''}" onclick="switchShiftsTab('branches')">🏬 סניפים</div>
-      <div class="tab ${_shiftsTab==='report'?'active':''}" onclick="switchShiftsTab('report')">📊 דוח מלא</div>
-      <div class="tab ${_shiftsTab==='branchreport'?'active':''}" onclick="switchShiftsTab('branchreport')">🏢 דוח סניפים</div>
-      <div class="tab ${_shiftsTab==='holidays'?'active':''}" onclick="switchShiftsTab('holidays')">🗓️ חגים</div>
+      <div class="tab ${activeGroup==='databases'?'active':''}" onclick="switchShiftsTab('databases')">🗄️ מסדי נתונים</div>
+      <div class="tab ${activeGroup==='reports'?'active':''}" onclick="switchShiftsTab('reports')">📊 דוחות</div>
     </div>`;
 
   if (_shiftsTab === 'saved') {
@@ -1650,19 +1675,19 @@ function renderShiftsApp() {
   }
 
   if (_shiftsTab === 'workers') {
-    el.innerHTML = tabBar + `<div id="workers-content"><div class="info">טוען...</div></div>`;
+    el.innerHTML = tabBar + subTabBar(_dbTabs, 'workers') + `<div id="workers-content"><div class="info">טוען...</div></div>`;
     loadWorkers();
     return;
   }
 
   if (_shiftsTab === 'branches') {
-    el.innerHTML = tabBar + `<div id="branches-content"><div class="info">טוען...</div></div>`;
+    el.innerHTML = tabBar + subTabBar(_dbTabs, 'branches') + `<div id="branches-content"><div class="info">טוען...</div></div>`;
     loadBranches();
     return;
   }
 
   if (_shiftsTab === 'branchreport') {
-    el.innerHTML = tabBar + `
+    el.innerHTML = tabBar + subTabBar(_reportsTabs, 'branchreport') + `
       <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
         <label style="font-weight:600;font-size:.9rem">📅 תאריך</label>
         <input type="date" id="branch-report-date-picker" class="sb-input" style="width:auto"
@@ -1670,6 +1695,15 @@ function renderShiftsApp() {
       </div>
       <div id="branch-report-content"><div class="info">טוען...</div></div>`;
     setTimeout(initBranchReportTab, 0);
+    return;
+  }
+
+  if (_shiftsTab === 'salary') {
+    el.innerHTML = tabBar + subTabBar(_reportsTabs, 'salary') + `
+      <div class="info" style="text-align:center;padding:3rem 1rem;font-size:1rem">
+        💵 דוח שכר<br>
+        <span style="color:var(--muted);font-size:.85rem">בקרוב...</span>
+      </div>`;
     return;
   }
 
@@ -1720,7 +1754,7 @@ function renderShiftsApp() {
 
   if (_shiftsTab === 'holidays') {
     const curYear = new Date().getFullYear();
-    el.innerHTML = tabBar + `
+    el.innerHTML = tabBar + subTabBar(_dbTabs, 'holidays') + `
       <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
         <select id="hol-year" class="sb-input" style="width:auto" onchange="loadHolidaysTab()">
           ${[curYear-1, curYear, curYear+1].map(y=>`<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`).join('')}
@@ -1735,7 +1769,7 @@ function renderShiftsApp() {
   }
 
   if (_shiftsTab === 'report') {
-    el.innerHTML = tabBar + `
+    el.innerHTML = tabBar + subTabBar(_reportsTabs, 'report') + `
       <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
         <select id="report-month-select" class="sb-input" style="width:auto;min-width:140px" onchange="onReportMonthChange(this.value)">
           <option value="">טוען חודשים...</option>
@@ -1804,10 +1838,13 @@ function renderShiftsApp() {
 
 async function checkGmailStatus() {
   const res = await GET('/auth/gmail/status');
+  const statusEl = document.getElementById('gmail-status-text');
+  const dateEl = document.getElementById('gmail-date');
+  const fetchBtn = document.getElementById('fetch-gmail-btn');
+  if (!statusEl || !dateEl || !fetchBtn) return;
   if (res?.connected) {
-    document.getElementById('gmail-status-text').textContent = '✅ מחובר';
-    document.getElementById('gmail-status-text').style.color = 'var(--success)';
-    const dateEl = document.getElementById('gmail-date');
+    statusEl.textContent = '✅ מחובר';
+    statusEl.style.color = 'var(--success)';
     dateEl.style.display = '';
     if (!dateEl.value) {
       // Default to yesterday — the daily flow fetches yesterday's hours file
@@ -1815,7 +1852,12 @@ async function checkGmailStatus() {
       d.setDate(d.getDate() - 1);
       dateEl.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
-    document.getElementById('fetch-gmail-btn').style.display = '';
+    fetchBtn.style.display = '';
+  } else {
+    statusEl.textContent = 'לא מחובר';
+    statusEl.style.color = 'var(--muted)';
+    dateEl.style.display = 'none';
+    fetchBtn.style.display = 'none';
   }
 }
 
@@ -3378,6 +3420,7 @@ async function fetchFromGmail() {
     }
   } catch(e) {
     toast(`שגיאה: ${e.message}`, 'error');
+    if (e.message && e.message.includes('התנתק')) await checkGmailStatus();
   } finally {
     btn.textContent = '📥 משוך קובץ ממייל';
     btn.disabled = false;
