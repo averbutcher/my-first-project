@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.7 · made by klod averbutcher</div>
+    <div class="login-ver">v2.8 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.7 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.8 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -264,7 +264,7 @@ details.sb-exp summary::before{content:"▶ "}
     <!-- Shift comparison -->
     <div id="shifts-app" class="hidden">
       <div class="page-eyebrow">Electra Target Tools</div>
-      <div class="page-title">📊 השוואת משמרות</div>
+      <div class="page-title">📊 ניהול פרוייקטים</div>
       <div id="shifts-content"></div>
     </div>
 
@@ -511,7 +511,7 @@ async function initApp() {
 // ══════════════════════════════════════════
 const ALL_APPS = [
   ['tender_scanner',      '🔍', 'סריקת מכרזים'],
-  ['shift_comparison',    '📊', 'השוואת משמרות'],
+  ['shift_comparison',    '📊', 'ניהול פרוייקטים'],
   ['recruiter_analysis',  '👥', 'ניתוח מגייסים'],
   ['netiv_haor',          '🕯️', 'נתיב האור'],
 ];
@@ -1933,6 +1933,21 @@ const _tabGroup = {
   report: 'reports', branchreport: 'reports', salary: 'reports',
 };
 
+// Projects inside ניהול פרוייקטים. Only the active one has data behind it;
+// the rest show the same tab layout with a "coming soon" placeholder.
+const PROJECTS = [
+  { id: 'lifestyle', label: 'לייף סטייל' },
+  { id: 'ramilevy',  label: 'רמי לוי', comingSoon: true },
+];
+let _project = localStorage.getItem('shiftsProject') || 'lifestyle';
+if (!PROJECTS.some(p => p.id === _project)) _project = 'lifestyle';
+
+function switchProject(id) {
+  _project = id;
+  localStorage.setItem('shiftsProject', id);
+  renderShiftsApp();
+}
+
 function subTabBar(items, active) {
   return `<div class="tabs" style="margin-bottom:1rem;border-bottom:1px solid var(--border)">
     ${items.map(t => `<div class="tab ${active===t.key?'active':''}" style="font-size:.82rem;padding:.4rem .8rem" onclick="switchShiftsTab('${t.key}')">${t.label}</div>`).join('')}
@@ -1958,7 +1973,17 @@ function switchShiftsTab(tab) {
 function renderShiftsApp() {
   const el = document.getElementById('shifts-content');
   const activeGroup = _tabGroup[_shiftsTab] || _shiftsTab;
-  const tabBar = `
+
+  const projectBar = `
+    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+      <label style="font-size:.85rem;font-weight:600">🏷️ בחר פרויקט</label>
+      <select class="sb-input" style="width:auto;min-width:150px" onchange="switchProject(this.value)">
+        ${PROJECTS.map(p => `<option value="${p.id}" ${p.id===_project?'selected':''}>${esc(p.label)}${p.comingSoon?' (בקרוב)':''}</option>`).join('')}
+      </select>
+    </div>`;
+
+  // Every branch below renders `tabBar`, so the project selector rides along with it
+  const tabBar = projectBar + `
     <div class="tabs" style="margin-bottom:1.2rem">
       <div class="tab ${_shiftsTab==='compare'?'active':''}" onclick="switchShiftsTab('compare')">⚡ השוואה</div>
       <div class="tab ${_shiftsTab==='saved'?'active':''}" onclick="switchShiftsTab('saved')">📋 שעות עובדים</div>
@@ -1966,6 +1991,18 @@ function renderShiftsApp() {
       <div class="tab ${activeGroup==='databases'?'active':''}" onclick="switchShiftsTab('databases')">🗄️ מסדי נתונים</div>
       <div class="tab ${activeGroup==='reports'?'active':''}" onclick="switchShiftsTab('reports')">📊 דוחות</div>
     </div>`;
+
+  // Projects other than the active one keep the same tab layout but have no
+  // data behind them yet
+  const proj = PROJECTS.find(p => p.id === _project);
+  if (proj && proj.comingSoon) {
+    el.innerHTML = tabBar + `
+      <div class="info" style="text-align:center;padding:3rem 1rem;font-size:1rem">
+        ${esc(proj.label)}<br>
+        <span style="color:var(--muted);font-size:.85rem">בקרוב...</span>
+      </div>`;
+    return;
+  }
 
   if (_shiftsTab === 'saved') {
     el.innerHTML = tabBar + `
@@ -2682,9 +2719,9 @@ let _salaryModels = [];
 const SALARY_MODEL_FIELDS = [
   ['base_hourly',          'שכר לשעה'],
   ['bonus_per_sale',       'בונוס מכירות'],
-  ['bonus_chk_1500',       'חחק עד 1500'],
-  ['bonus_chk_2500',       'חחק 1501-2500'],
-  ['bonus_chk_4000',       'חחק 2501-4000'],
+  ['bonus_chk_1500',       'אשראי מתגלגל עד 1500'],
+  ['bonus_chk_2500',       'אשראי מתגלגל 1501-2500'],
+  ['bonus_chk_4000',       'אשראי מתגלגל 2501-4000'],
   ['bonus_standing_order', 'הוראות קבע'],
   ['bonus_arnak_below',    'ארנוק מתחת ליעד'],
   ['bonus_arnak_above',    'ארנוק מעל היעד'],
@@ -3400,7 +3437,7 @@ async function loadFullReport() {
       <table class="tbl tbl-grid" style="font-size:.8rem">
         <thead><tr>
           ${th('ת.ז')}${th('שם עובד')}${th('מנהל')}${th('משמרות')}${th('שעות')}
-          ${th('סה״כ מכירות')}${th('אשראי עד 1500')}${th('אשראי 1501-2500')}${th('אשראי 2501-4000')}
+          ${th('סה״כ מכירות')}${th('אשראי מתגלגל עד 1500')}${th('אשראי מתגלגל 1501-2500')}${th('אשראי מתגלגל 2501-4000')}
           ${th('סה״כ הו״ק')}${th('סה״כ ארנוקים')}${th('ממוצע מכירות/שעה')}
           ${th('צפי שעות')}${th('יעד')}${th('צפי מכירות')}${th('% הגעה ליעד')}${th('הנפקות')}
         </tr></thead>
@@ -3666,7 +3703,7 @@ async function loadDailyReport() {
       <table class="tbl tbl-grid" style="font-size:.8rem">
         <thead><tr>
           ${th('ת.ז')}${th('שם עובד')}${th('מנהל')}${th('שעות')}
-          ${th('סה״כ מכירות')}${th('חחקים')}${th('הו״ק')}${th(arnakotDateExists ? 'ארנוקים עודכן' : 'ארנוקים לא מעודכן')}
+          ${th('סה״כ מכירות')}${th('אשראי מתגלגל')}${th('הו״ק')}${th(arnakotDateExists ? 'ארנוקים עודכן' : 'ארנוקים לא מעודכן')}
           ${th('ממוצע מכירות/שעה')}${th('הנפקות')}
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -3917,8 +3954,8 @@ async function computeSalary() {
 
 const SALARY_COLS = [
   ['id_number','ת.ז'], ['name','שם עובד'], ['base_hourly','שכר לשעה'], ['travel','נסיעות'],
-  ['bonus_sales','בונוס מכירות'], ['bonus_chk1500','חחק עד 1500'], ['manager_bonus','בונוס מנהל'],
-  ['bonus_chk2500','חחק 1501-2500'], ['bonus_chk4000','חחק 2501-4000'], ['bonus_standing_order','הו״ק'],
+  ['bonus_sales','בונוס מכירות'], ['bonus_chk1500','אשראי מתגלגל עד 1500'], ['manager_bonus','בונוס מנהל'],
+  ['bonus_chk2500','אשראי מתגלגל 1501-2500'], ['bonus_chk4000','אשראי מתגלגל 2501-4000'], ['bonus_standing_order','הו״ק'],
   ['bonus_arnakot','ארנוקים'], ['bonus_extra','אקסטרה'], ['working_days','ימי עבודה'],
   ['hours_100','שעות 100%'], ['hours_125','שעות 125%'], ['hours_150','שעות 150%'], ['total','סה״כ שכר'],
 ];
