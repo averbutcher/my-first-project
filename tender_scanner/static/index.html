@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.4 · made by klod averbutcher</div>
+    <div class="login-ver">v2.5 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.4 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.5 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -1698,7 +1698,13 @@ function renderShiftsApp() {
       <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap">
         <label style="font-weight:600;font-size:.9rem">📅 תאריך</label>
         <input type="date" id="branch-report-date-picker" class="sb-input" style="width:auto"
-               onchange="onBranchReportDateChange(this.value)">
+               onchange="onBranchReportDateChange(this.value)" ${S.branchAllDays?'disabled':''}>
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer">
+          <input type="checkbox" id="branch-all-days" ${S.branchAllDays?'checked':''}
+                 onchange="onBranchAllDaysChange(this.checked)">
+          הצג את כל הימים
+        </label>
+        <button class="btn btn-outline btn-sm" onclick="exportBranchReport()">⬇️ ייצוא לאקסל</button>
       </div>
       <div id="branch-report-content"><div class="info">טוען...</div></div>`;
     setTimeout(initBranchReportTab, 0);
@@ -2523,12 +2529,83 @@ async function onBranchReportDateChange(val) {
   await loadBranchReport();
 }
 
+function onBranchAllDaysChange(checked) {
+  S.branchAllDays = checked;
+  const picker = document.getElementById('branch-report-date-picker');
+  if (picker) picker.disabled = checked;
+  loadBranchReport();
+}
+
+function branchReportQuery() {
+  const params = [];
+  if (S.branchAllDays) params.push('all_days=true');
+  else if (S.branchReportDate) params.push(`date=${encodeURIComponent(S.branchReportDate)}`);
+  return params.length ? '?' + params.join('&') : '';
+}
+
+function exportBranchReport() {
+  window.location.href = '/api/report/branches/export' + branchReportQuery();
+}
+
+function branchTableHtml(rows) {
+  const th = t => `<th style="white-space:nowrap;font-size:.75rem;padding:.4rem .5rem">${t}</th>`;
+  return `
+    <div style="overflow-x:auto">
+    <table class="tbl tbl-grid" style="font-size:.8rem">
+      <thead><tr>${th('תאריך')}${th('מספר')}${th('שם סניף')}${th('שעות')}${th('מכירות')}</tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td style="text-align:center;white-space:nowrap">${esc(r.date||'')}</td>
+          <td style="text-align:center">${esc(r.number||'')}</td>
+          <td>${esc(r.name||'')}</td>
+          <td style="text-align:center">${r.hours || 0}</td>
+          <td style="text-align:center">${r.sales || 0}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+function branchMismatchHtml(mismatches) {
+  if (!mismatches || !mismatches.length) return '';
+  return `
+    <h3 style="font-size:.95rem;margin:1.5rem 0 .6rem">⚠️ סניפים עם מכירות ללא שעות</h3>
+    ${mismatches.map(m => `
+      <div style="margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+        <div style="font-weight:600;font-size:.85rem;margin-bottom:.5rem">🏬 ${esc(m.branch_label)}</div>
+        ${m.workers.map(w => `
+          <div style="margin-bottom:.5rem;font-size:.8rem">
+            <div style="font-weight:600">${esc(w.full_name || w.worker_name)}${w.full_name && w.full_name !== w.worker_name ? ` <span style="font-weight:400;color:var(--muted)">(במכירות: ${esc(w.worker_name)})</span>` : ''}</div>
+            ${(w.sales || []).length ? `
+              <div style="margin-top:.2rem">
+                מספרי מכירה בסניף זה (${w.sales.length}):
+                <span style="direction:ltr;unicode-bidi:embed">${w.sales.map(s => esc(s.sale_number)).join(', ')}</span>
+              </div>` : ''}
+            ${w.shifts.length ? `
+              <div style="color:var(--muted);margin-top:.2rem">
+                שעות נרשמו ב: ${w.shifts.map(s => `${esc(s.date)}: ${esc(s.workplace || '—')}${s.branch_key ? ` → ${esc(s.branch_key)}` : ' (סניף לא מזוהה)'}`).join('<br>')}
+              </div>` : `<div style="color:var(--muted);margin-top:.2rem">אין רישום שעות לעובד זה בתאריך זה</div>`}
+          </div>`).join('')}
+      </div>`).join('')}`;
+}
+
 async function loadBranchReport() {
   const el = document.getElementById('branch-report-content');
   if (!el) return;
   try {
-    const qs = S.branchReportDate ? `?date=${encodeURIComponent(S.branchReportDate)}` : '';
-    const data = await api('GET', '/api/report/branches' + qs);
+    const data = await api('GET', '/api/report/branches' + branchReportQuery());
+
+    if (data?.all_days) {
+      const days = data.days || [];
+      if (!days.length) { el.innerHTML = '<div class="info">אין נתוני סניפים.</div>'; return; }
+      el.innerHTML = days.map(d => `
+        <div style="margin-bottom:1.6rem">
+          <h3 style="font-size:.9rem;margin:0 0 .5rem">📅 ${esc(d.date)}</h3>
+          ${branchTableHtml(d.rows)}
+          ${branchMismatchHtml(d.mismatches)}
+        </div>`).join('');
+      return;
+    }
+
     const rows = data?.rows || [];
     const mismatches = data?.mismatches || [];
 
@@ -2547,45 +2624,7 @@ async function loadBranchReport() {
       return;
     }
 
-    const th = t => `<th style="white-space:nowrap;font-size:.75rem;padding:.4rem .5rem">${t}</th>`;
-    const tableHtml = `
-      <div style="overflow-x:auto">
-      <table class="tbl tbl-grid" style="font-size:.8rem">
-        <thead><tr>${th('מספר')}${th('שם סניף')}${th('שעות')}${th('מכירות')}</tr></thead>
-        <tbody>
-          ${rows.map(r => `<tr>
-            <td style="text-align:center">${esc(r.number||'')}</td>
-            <td>${esc(r.name||'')}</td>
-            <td style="text-align:center">${r.hours || 0}</td>
-            <td style="text-align:center">${r.sales || 0}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>`;
-
-    let mismatchHtml = '';
-    if (mismatches.length) {
-      mismatchHtml = `
-        <h3 style="font-size:.95rem;margin:1.5rem 0 .6rem">⚠️ סניפים עם מכירות ללא שעות</h3>
-        ${mismatches.map(m => `
-          <div style="margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
-            <div style="font-weight:600;font-size:.85rem;margin-bottom:.5rem">🏬 ${esc(m.branch_label)}</div>
-            ${m.workers.map(w => `
-              <div style="margin-bottom:.5rem;font-size:.8rem">
-                <div style="font-weight:600">${esc(w.full_name || w.worker_name)}${w.full_name && w.full_name !== w.worker_name ? ` <span style="font-weight:400;color:var(--muted)">(במכירות: ${esc(w.worker_name)})</span>` : ''}</div>
-                ${(w.sales || []).length ? `
-                  <div style="margin-top:.2rem">
-                    מספרי מכירה בסניף זה (${w.sales.length}):
-                    <span style="direction:ltr;unicode-bidi:embed">${w.sales.map(s => esc(s.sale_number)).join(', ')}</span>
-                  </div>` : ''}
-                ${w.shifts.length ? `
-                  <div style="color:var(--muted);margin-top:.2rem">
-                    שעות נרשמו ב: ${w.shifts.map(s => `${esc(s.date)}: ${esc(s.workplace || '—')}${s.branch_key ? ` → ${esc(s.branch_key)}` : ' (סניף לא מזוהה)'}`).join('<br>')}
-                  </div>` : `<div style="color:var(--muted);margin-top:.2rem">אין רישום שעות לעובד זה בתאריך זה</div>`}
-              </div>`).join('')}
-          </div>`).join('')}`;
-    }
-
-    el.innerHTML = tableHtml + mismatchHtml;
+    el.innerHTML = branchTableHtml(rows) + branchMismatchHtml(mismatches);
   } catch(e) {
     el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
   }
@@ -3337,9 +3376,11 @@ async function loadDailyReport() {
 let _salaryState = {
   month: null,
   prepare: null,          // /api/salary/prepare response
+  settings: null,         // live settings (survive re-renders; seeded from the server)
   overrides: {},          // worker_id -> {sales:bool, arnakot:bool}
   managerBonuses: {},     // worker_id -> number
   showManagerBonus: false,
+  bonusSearch: '',
 };
 
 async function initSalaryReport() {
@@ -3366,6 +3407,7 @@ async function onSalaryMonthChange(val) {
   _salaryState.overrides = {};
   _salaryState.managerBonuses = {};
   _salaryState.showManagerBonus = false;
+  _salaryState.bonusSearch = '';
   await loadSalaryPrepare();
 }
 
@@ -3374,7 +3416,8 @@ async function loadSalaryPrepare() {
   if (!body) return;
   const data = await api('GET', `/api/salary/prepare?month=${encodeURIComponent(_salaryState.month)}`);
   _salaryState.prepare = data;
-  // Seed decisions from a saved run for this month, if any
+  // Seed decisions + settings from a saved run for this month, if any
+  _salaryState.settings = { ...(data.settings || {}), ...((data.saved && data.saved.settings) || {}) };
   if (data.saved) {
     _salaryState.overrides = data.saved.overrides || {};
     _salaryState.managerBonuses = data.saved.managerBonuses || data.saved.manager_bonuses || {};
@@ -3383,14 +3426,27 @@ async function loadSalaryPrepare() {
   renderSalaryBody();
 }
 
-function salarySettingsFromInputs() {
+// Pull whatever is currently typed into the settings inputs back into state, so
+// values survive the re-renders triggered by editing them.
+function syncSalarySettings() {
   const g = id => parseFloat(document.getElementById(id)?.value);
-  const s = _salaryState.prepare?.settings || {};
-  return {
-    closeness: isNaN(g('sal-closeness')) ? s.closeness : g('sal-closeness'),
-    hours_125: isNaN(g('sal-h125')) ? s.hours_125 : g('sal-h125'),
-    hours_150: isNaN(g('sal-h150')) ? s.hours_150 : g('sal-h150'),
+  const s = _salaryState.settings || {};
+  const pick = (v, fallback) => isNaN(v) ? fallback : v;
+  _salaryState.settings = {
+    closeness: pick(g('sal-closeness'), s.closeness),
+    hours_125: pick(g('sal-h125'), s.hours_125),
+    hours_150: pick(g('sal-h150'), s.hours_150),
   };
+  return _salaryState.settings;
+}
+
+function salarySettingsFromInputs() {
+  return syncSalarySettings();
+}
+
+function onSalarySettingChange() {
+  syncSalarySettings();
+  renderSalaryBody();
 }
 
 function renderSalaryBody() {
@@ -3403,7 +3459,7 @@ function renderSalaryBody() {
     return;
   }
 
-  const s = data.settings || {};
+  const s = _salaryState.settings || data.settings || {};
   const noModel = data.workers.filter(w => !w.has_model);
 
   const settingsHtml = `
@@ -3412,25 +3468,24 @@ function renderSalaryBody() {
       <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
         <div style="display:flex;flex-direction:column;gap:.15rem">
           <label style="font-size:.72rem;color:var(--muted)">"קרוב ליעד" = עד כמה יחידות מתחת</label>
-          <input id="sal-closeness" type="number" step="any" value="${s.closeness}" onchange="renderSalaryBody()"
+          <input id="sal-closeness" type="number" step="any" value="${s.closeness}" onchange="onSalarySettingChange()"
             style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
         </div>
         <div style="display:flex;flex-direction:column;gap:.15rem">
           <label style="font-size:.72rem;color:var(--muted)">שעות ליום מתחילת 125%</label>
-          <input id="sal-h125" type="number" step="any" value="${s.hours_125}"
+          <input id="sal-h125" type="number" step="any" value="${s.hours_125}" onchange="syncSalarySettings()"
             style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
         </div>
         <div style="display:flex;flex-direction:column;gap:.15rem">
           <label style="font-size:.72rem;color:var(--muted)">שעות ליום מתחילת 150%</label>
-          <input id="sal-h150" type="number" step="any" value="${s.hours_150}"
+          <input id="sal-h150" type="number" step="any" value="${s.hours_150}" onchange="syncSalarySettings()"
             style="width:90px;padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">
         </div>
       </div>
     </div>`;
 
   // Closeness review — workers below target but within the threshold, per target type
-  const closeness = parseFloat(document.getElementById('sal-closeness')?.value);
-  const thr = isNaN(closeness) ? (s.closeness || 0) : closeness;
+  const thr = parseFloat(s.closeness) || 0;
   const closeSales = [], closeArnak = [];
   for (const w of data.workers) {
     if (!w.has_model) continue;
@@ -3476,10 +3531,16 @@ function renderSalaryBody() {
   if (_salaryState.showManagerBonus) {
     mgrHtml = `
       <div style="padding:.7rem .9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
-        <div style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">➕ בונוס מנהל</div>
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
+          <span style="font-size:.82rem;font-weight:600">➕ בונוס מנהל</span>
+          <input id="bonus-search" type="text" placeholder="🔍 חיפוש עובד..." value="${esc(_salaryState.bonusSearch)}"
+            oninput="filterBonusWorkers(this.value)"
+            style="width:200px;padding:.25rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem;background:var(--bg);color:var(--text)">
+          <span id="bonus-search-count" style="font-size:.75rem;color:var(--muted)"></span>
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:.6rem">
           ${withModel.map(w => `
-            <div style="display:flex;flex-direction:column;gap:.15rem">
+            <div class="bonus-worker" data-name="${esc(w.name)}" style="display:flex;flex-direction:column;gap:.15rem">
               <label style="font-size:.72rem;color:var(--muted)">${esc(w.name)}</label>
               <input type="number" step="any" value="${_salaryState.managerBonuses[w.worker_id] ?? ''}" placeholder="0"
                 onchange="setManagerBonus('${w.worker_id}', this.value)"
@@ -3503,7 +3564,23 @@ function renderSalaryBody() {
     </div>
     <div id="salary-results"></div>`;
 
+  if (_salaryState.bonusSearch) filterBonusWorkers(_salaryState.bonusSearch);
   if (data.saved && data.saved.rows) renderSalaryResults(data.saved.rows);
+}
+
+// Filters the manager-bonus fields in place (no re-render, so typed values and
+// keyboard focus survive)
+function filterBonusWorkers(q) {
+  _salaryState.bonusSearch = q || '';
+  const needle = _salaryState.bonusSearch.trim().toLowerCase();
+  let shown = 0;
+  document.querySelectorAll('.bonus-worker').forEach(el => {
+    const match = !needle || (el.dataset.name || '').toLowerCase().includes(needle);
+    el.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  const c = document.getElementById('bonus-search-count');
+  if (c) c.textContent = needle ? `${shown} תוצאות` : '';
 }
 
 function setSalaryOverride(wid, kind, val) {
@@ -3708,14 +3785,8 @@ function savedEditRowHtml(r, isNew) {
       ${options.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`).join('')}
     </select>`;
   const workerOpts = _savedWorkers.map(w => w.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he'));
-  // Mirror the server's _normalize_branch_label so manual picks match stored branch keys
-  const normBranchLabel = b => {
-    let num = String(b.number||'').trim();
-    num = num.replace(/^0+/, '') || (num ? '0' : '');
-    const name = String(b.name||'').trim().replace(/\s+/g, ' ');
-    return `${num} - ${name}`.replace(/^[\s-]+|[\s-]+$/g, '');
-  };
-  const branchOpts = _savedBranches.map(normBranchLabel).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he',{numeric:true}));
+  // The server sends the canonical label (matching.BranchMatcher owns the rules)
+  const branchOpts = _savedBranches.map(b => b.label).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he',{numeric:true}));
   const statusSel = `
     <select data-field="status" style="font-size:.8rem;padding:.2rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text)">
       ${[['ok','✅ תקין'],['gap','⚠️ פער'],['missing_msg','🟠 חסר בהודעה'],['missing_excel','🔴 חסר באקסל']]

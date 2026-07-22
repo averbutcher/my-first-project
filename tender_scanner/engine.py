@@ -7,22 +7,9 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 
+from matching import NameMatcher, BranchMatcher, normalize_match_text  # noqa: F401
+
 CONFIG_PATH = Path(__file__).parent / "config.json"
-
-
-_INVISIBLE_CHARS_RE = re.compile(
-    "[​‌‍‎‏‪‫‬‭‮⁠﻿]"
-)
-
-def normalize_match_text(s: str) -> str:
-    """Normalizes free text for exact-match comparisons (branch nicknames, workplace text):
-    strips invisible bidi/format characters (common in WhatsApp copy-paste text) and
-    collapses whitespace, so visually-identical strings compare equal."""
-    if not s:
-        return ""
-    s = _INVISIBLE_CHARS_RE.sub("", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
 
 DEFAULT_CONFIG = {
     "excel_columns": {
@@ -264,71 +251,9 @@ def parse_excel(file_path: str, cfg: dict) -> list[dict]:
     return entries
 
 
-# ── Name matching ──────────────────────────────────────────────────────────────
-
-def canonical_key(name: str, aliases: dict) -> str:
-    """Map a name to its canonical group key using aliases."""
-    for k, v in aliases.items():
-        if name == k or name == v:
-            return k
-    return name
-
-
-def _first_name(name: str) -> str:
-    return name.split()[0] if name.strip() else name
-
-
-def _build_word_lookup(excel_by_key: dict, word_index: int) -> dict[str, str | None]:
-    """
-    Build {word: canonical_key} where 'word' is the word at word_index in the
-    Excel name. Keys that map to more than one worker are set to None (ambiguous).
-    """
-    lookup: dict[str, str | None] = {}
-    for key in excel_by_key:
-        words = key.split()
-        if len(words) <= word_index:
-            continue
-        word = words[word_index]
-        if word in lookup:
-            lookup[word] = None  # ambiguous
-        else:
-            lookup[word] = key
-    return lookup
-
-
-def make_worker_resolver(known_workers, aliases: dict):
-    """
-    Returns resolve(name) -> workers-table full name (or "" when unmatched).
-    Same priority as message-vs-Excel matching:
-    1. Alias/nickname  2. Exact full name  3. Unique first-word match
-    against the full name's first word, then its second word.
-    """
-    known = {n for n in known_workers if n}
-    first_word_lookup  = _build_word_lookup({k: None for k in known}, 0)
-    second_word_lookup = _build_word_lookup({k: None for k in known}, 1)
-
-    def resolve(name: str) -> str:
-        name = normalize_match_text(name or "")
-        if not name:
-            return ""
-        for k, v in aliases.items():
-            if (name == k or name == v) and v in known:
-                return v
-        if name in known:
-            return name
-        fn = _first_name(name)
-        matched = first_word_lookup.get(fn)
-        if matched:
-            return matched
-        matched = second_word_lookup.get(fn)
-        if matched:
-            return matched
-        return ""
-
-    return resolve
-
-
 # ── Comparison ─────────────────────────────────────────────────────────────────
+# Name/branch matching is NOT implemented here — it lives in matching.py
+# (NameMatcher / BranchMatcher), which every caller shares.
 
 def _filter_excel_rows(rows: list) -> list:
     """
@@ -389,39 +314,30 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
         None
     )
 
+    # Identity: both sides are resolved against the workers table, so a person is
+    # the same person no matter how the message or the Excel spells their name.
+    # Unknown names fall back to their own text, so they still get their own row.
+    matcher = cfg.get("worker_matcher") or NameMatcher(known_workers, aliases)
+    canonical: dict[str, str] = {}    # identity -> workers-table full name ("" if unknown)
+    raw_display: dict[str, str] = {}  # identity -> name to show when unknown
+
+    def identity(raw_name: str) -> str:
+        resolved = matcher.resolve(raw_name)
+        key = resolved or normalize_match_text(raw_name)
+        canonical.setdefault(key, resolved or "")
+        raw_display.setdefault(key, normalize_match_text(raw_name))
+        return key
+
+    def display_name(key: str) -> str:
+        return canonical.get(key) or raw_display.get(key, key)
+
     excel_by_key: dict[str, list] = {}
     for e in excel_entries:
-        k = canonical_key(e["worker_name"], aliases)
-        excel_by_key.setdefault(k, []).append(e)
-
-    # Name fallback lookups (word 0 = first word, word 1 = second word of Excel name)
-    first_word_lookup  = _build_word_lookup(excel_by_key, 0)  # Excel first name first
-    second_word_lookup = _build_word_lookup(excel_by_key, 1)  # Excel last name first
-
-    def resolve_msg_key(msg_name: str) -> str:
-        """
-        Matching priority:
-        1. Alias
-        2. Exact name
-        3. Message first word == Excel first word  (e.g. "ישראל" → "ישראל ישראלי")
-        4. Message first word == Excel second word (e.g. "ישראל" → "ישראלי ישראל")
-        """
-        k = canonical_key(msg_name, aliases)
-        if k in excel_by_key:
-            return k
-        fn = _first_name(msg_name)
-        matched = first_word_lookup.get(fn)
-        if matched is not None:
-            return matched
-        matched = second_word_lookup.get(fn)
-        if matched is not None:
-            return matched
-        return k
+        excel_by_key.setdefault(identity(e["worker_name"]), []).append(e)
 
     msg_by_key: dict[str, list] = {}
     for e in msg_entries:
-        k = resolve_msg_key(e["worker_name"])
-        msg_by_key.setdefault(k, []).append(e)
+        msg_by_key.setdefault(identity(e["worker_name"]), []).append(e)
 
     all_keys = sorted(set(excel_by_key) | set(msg_by_key))
     output   = []
@@ -446,7 +362,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
             if diff_min <= threshold_min:
                 output.append({
                     "date":        er["date"],
-                    "worker_name": er["worker_name"],
+                    "worker_name": display_name(key),
                     "workplace":   mr["workplace"],
                     "start_time":  start_t,
                     "end_time":    end_t,
@@ -457,7 +373,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
             else:
                 output.append({
                     "date":        er["date"],
-                    "worker_name": er["worker_name"],
+                    "worker_name": display_name(key),
                     "workplace":   mr["workplace"],
                     "start_time":  start_t,
                     "end_time":    end_t,
@@ -501,7 +417,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                 row_end   = add_hours(current_start, msg_hours) if current_start is not None else None
                 output.append({
                     "date":        er["date"],
-                    "worker_name": er["worker_name"],
+                    "worker_name": display_name(key),
                     "workplace":   mr["workplace"],
                     "start_time":  current_start,
                     "end_time":    row_end,
@@ -541,7 +457,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     # Message line had no hours — use whatever Excel times we have
                     output.append({
                         "date":        er["date"],
-                        "worker_name": er["worker_name"],
+                        "worker_name": display_name(key),
                         "workplace":   mr["workplace"],
                         "start_time":  start_t,
                         "end_time":    end_t,
@@ -555,7 +471,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     # Times completed from message hours — flag for review
                     output.append({
                         "date":        er["date"],
-                        "worker_name": er["worker_name"],
+                        "worker_name": display_name(key),
                         "workplace":   mr["workplace"],
                         "start_time":  start_t,
                         "end_time":    end_t,
@@ -571,7 +487,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     # Rule 1 — times match
                     output.append({
                         "date":        er["date"],
-                        "worker_name": er["worker_name"],
+                        "worker_name": display_name(key),
                         "workplace":   mr["workplace"],
                         "start_time":  start_t,
                         "end_time":    end_t,
@@ -583,7 +499,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     # Rule 2 — gap: use Excel start, message hours for end
                     output.append({
                         "date":        er["date"],
-                        "worker_name": er["worker_name"],
+                        "worker_name": display_name(key),
                         "workplace":   mr["workplace"],
                         "start_time":  start_t,
                         "end_time":    add_hours(start_t, mh),
@@ -594,12 +510,12 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
 
             elif er:
                 # Managers are optional — if they're not in the message, skip them silently
-                if _is_ignored(er["worker_name"], managers) or _is_ignored(key, managers):
+                if _is_ignored(display_name(key), managers) or _is_ignored(er["worker_name"], managers):
                     continue
                 # Rule 3 — missing from message
                 output.append({
                     "date":        er["date"],
-                    "worker_name": er["worker_name"],
+                    "worker_name": display_name(key),
                     "workplace":   "",
                     "start_time":  er["start_time"],
                     "end_time":    er["end_time"],
@@ -613,7 +529,7 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                 mh = mr["hours"] or 0
                 output.append({
                     "date":        excel_date or "",
-                    "worker_name": key,
+                    "worker_name": display_name(key),
                     "workplace":   mr["workplace"],
                     "start_time":  default_start,
                     "end_time":    add_hours(default_start, mh),
@@ -622,22 +538,16 @@ def _compare_day(msg_entries: list, excel_entries: list, cfg: dict) -> list[dict
                     "status":      "missing_excel",
                 })
 
-    resolve_worker = make_worker_resolver(known_workers, aliases)
-
     for row in output:
         if row.get("hours") is None and row.get("start_time") and row.get("end_time"):
             row["hours"] = hours_between(row["start_time"], row["end_time"])
-        # Resolve + flag worker (name vs workers table: nickname → exact → first word)
+        # The worker was already resolved during grouping — reuse that decision so
+        # the row's name, its worker_key and the reports can never disagree.
         flags = []
-        resolved_worker = resolve_worker(row.get("worker_name", "")) if known_workers else ""
+        resolved_worker = matcher.resolve_or_blank(row.get("worker_name", "")) if known_workers else ""
         row["worker_key"] = resolved_worker
-        if known_workers:
-            # Missing-from-Excel rows carry the raw message name — show the
-            # worker's regular full name from the workers table instead
-            if row.get("status") == "missing_excel" and resolved_worker:
-                row["worker_name"] = resolved_worker
-            if row.get("worker_name") and not resolved_worker:
-                flags.append("⚠️ עובד לא נמצא בטבלה")
+        if known_workers and row.get("worker_name") and not resolved_worker:
+            flags.append("⚠️ עובד לא נמצא בטבלה")
         # Resolve + flag branch (workplace text vs branch nicknames table)
         workplace = normalize_match_text(row.get("workplace") or "")
         if branch_map:

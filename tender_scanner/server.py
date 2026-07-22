@@ -22,7 +22,8 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).parent))
 
 from analyzer import analyze_tender, distill_knowledge, SYSTEM_PROMPT
-from engine import load_config, save_config, parse_message, parse_excel, compare, export_to_excel, find_suspicious_lines, normalize_match_text, make_worker_resolver
+from engine import load_config, save_config, parse_message, parse_excel, compare, export_to_excel, find_suspicious_lines
+from matching import BranchMatcher, build_worker_matcher, normalize_match_text
 from scraper import Tender, _extract_id_from_url, _extract_pdf_text_from_bytes, fetch_tender_detail, fetch_tender_list
 from state import filter_new, load_seen, save_seen
 
@@ -1186,7 +1187,9 @@ async def shifts_compare(
     if worker_managers:
         compare_cfg["managers"] = worker_managers
     compare_cfg["known_workers"] = known_worker_names
-
+    # Same matcher the saved-shift enrichment and reports use, so the comparison
+    # and everything downstream agree on who each line belongs to
+    compare_cfg["worker_matcher"] = _worker_matcher(u)
     compare_cfg["branch_map"] = _build_branch_map(_load_branches(u))
 
     excel_bytes = await excel.read()
@@ -1262,18 +1265,13 @@ def _load_saved_shifts(u: str) -> list:
 def _save_saved_shifts(u: str, rows: list):
     _saved_shifts_path(u).write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
 
+def _worker_matcher(u: str):
+    """The shared NameMatcher for this user (workers table + nicknames + cfg aliases)."""
+    return build_worker_matcher(_load_workers(u), _load_shifts_cfg(u).get("aliases", {}))
+
 def _worker_resolver(u: str):
-    """resolve(name) -> workers-table full name, using cfg aliases + worker nicknames."""
-    workers = _load_workers(u)
-    cfg = _load_shifts_cfg(u)
-    known = {w["full_name"] for w in workers if w.get("full_name")}
-    aliases = dict(cfg.get("aliases", {}))
-    aliases.update({
-        w["nickname"]: w["full_name"]
-        for w in workers
-        if w.get("nickname") and w.get("full_name") and w["nickname"] != w["full_name"]
-    })
-    return make_worker_resolver(known, aliases)
+    """resolve(name) -> workers-table full name, or "" when unknown/ambiguous."""
+    return _worker_matcher(u).resolve_or_blank
 
 def _enrich_shift_row(row: dict, resolve_worker, branch_map: dict, prev: dict = None):
     """Recompute worker_key + branch_key from the row's text fields.
@@ -1614,7 +1612,14 @@ def _save_branches(u: str, branches: list):
 
 @app.get("/api/branches")
 async def get_branches(u: str = Depends(auth)):
-    return _load_branches(u)
+    # Include the canonical label so the frontend never has to re-implement
+    # the normalization rules (matching.BranchMatcher owns them)
+    branches = _load_branches(u)
+    for b in branches:
+        b["label"] = BranchMatcher.normalize_label(
+            f"{(b.get('number') or '').strip()} - {(b.get('name') or '').strip()}"
+        )
+    return branches
 
 @app.delete("/api/branches")
 async def delete_all_branches(u: str = Depends(auth)):
@@ -2285,35 +2290,13 @@ def _build_report_tables(u: str, month: str = None):
 
 
 def _build_branch_map(branches: list) -> dict:
-    """nickname (normalized) -> canonical branch label ("number - name").
-    The branch's own name always counts as a match, in addition to any nicknames."""
-    branch_map = {}
-    for b in branches:
-        label = _normalize_branch_label(f"{b.get('number','').strip()} - {b.get('name','').strip()}")
-        if not label:
-            continue
-        nicks = [n.strip() for n in (b.get("nicknames") or []) if n.strip()]
-        nicks.append(b.get("name", "").strip())
-        for nick in nicks:
-            key = normalize_match_text(nick)
-            if key:
-                branch_map[key] = label
-    return branch_map
+    """nickname (normalized) -> canonical branch label. Thin wrapper over the
+    shared BranchMatcher so existing callers keep working."""
+    return BranchMatcher(branches).as_dict()
 
 
 def _normalize_branch_label(text: str) -> str:
-    """Normalizes a 'number - name' branch string so formatting differences
-    (dash spacing, extra whitespace, leading zeros) don't break matching."""
-    text = (text or "").strip()
-    if not text:
-        return ""
-    if "-" in text:
-        num_part, _, name_part = text.partition("-")
-    else:
-        num_part, name_part = "", text
-    num_part = num_part.strip().lstrip("0") or ("0" if num_part.strip() else "")
-    name_part = " ".join(name_part.strip().split())
-    return f"{num_part} - {name_part}".strip(" -")
+    return BranchMatcher.normalize_label(text)
 
 
 def _d_to_iso(d: str) -> str:
@@ -2322,19 +2305,9 @@ def _d_to_iso(d: str) -> str:
         return f"{d[6:10]}-{d[3:5]}-{d[0:2]}"
     return d
 
-@app.get("/api/report/branches")
-async def report_branches(u: str = Depends(auth), date: str = Query(None)):
-    branches    = _load_branches(u)
-    sales_all   = _load_sales(u)
-    shifts_all  = _load_saved_shifts(u)
-
-    all_dates = [str(s.get("date","")) for s in (sales_all + shifts_all) if s.get("date")]
-    if date:
-        report_date = date
-    else:
-        iso_dates = sorted((_d_to_iso(d), d) for d in all_dates if _d_to_iso(d))
-        report_date = iso_dates[-1][1] if iso_dates else ""
-
+def _branch_report_for_date(u: str, branches: list, sales_all: list, shifts_all: list,
+                            resolve, report_date: str):
+    """Branch rows + sales-without-hours mismatches for one date."""
     def in_day(d: str) -> bool:
         return bool(report_date) and str(d).strip() == report_date
 
@@ -2379,6 +2352,7 @@ async def report_branches(u: str = Depends(auth), date: str = Query(None)):
     for key in all_branch_keys:
         b = branch_label.get(key, {})
         rows.append({
+            "date":   report_date,
             "number": b.get("number", key.split(" - ")[0] if " - " in key else ""),
             "name":   b.get("name", key.split(" - ", 1)[1] if " - " in key else key),
             "label":  key,
@@ -2387,12 +2361,12 @@ async def report_branches(u: str = Depends(auth), date: str = Query(None)):
         })
     if unassigned_hours:
         rows.append({
+            "date": report_date,
             "number": "", "name": "⚠️ לא משויך לסניף", "label": "",
             "hours": round(unassigned_hours, 2), "sales": 0,
         })
 
     # Mismatch: branches with sales but zero hours logged this day
-    resolve = _worker_resolver(u)
     mismatches = []
     for key in all_branch_keys:
         if sales_count.get(key, 0) > 0 and hours_by_branch.get(key, 0.0) == 0:
@@ -2420,7 +2394,89 @@ async def report_branches(u: str = Depends(auth), date: str = Query(None)):
                 })
             mismatches.append({"branch_label": key, "workers": worker_details})
 
-    return {"date": report_date, "rows": rows, "mismatches": mismatches}
+    return rows, mismatches
+
+
+def _branch_report_all_dates(sales_all: list, shifts_all: list) -> list:
+    """Every distinct date present in sales/shifts, oldest first."""
+    seen = {}
+    for s in (sales_all + shifts_all):
+        d = str(s.get("date", "")).strip()
+        if d:
+            seen[d] = _d_to_iso(d)
+    return [d for d, _iso in sorted(seen.items(), key=lambda kv: kv[1])]
+
+
+def _branch_report_payload(u: str, date: str = None, all_days: bool = False):
+    branches   = _load_branches(u)
+    sales_all  = _load_sales(u)
+    shifts_all = _load_saved_shifts(u)
+    resolve    = _worker_resolver(u)
+    dates      = _branch_report_all_dates(sales_all, shifts_all)
+
+    if all_days:
+        days = []
+        for d in dates:
+            rows, mism = _branch_report_for_date(u, branches, sales_all, shifts_all, resolve, d)
+            if rows:
+                days.append({"date": d, "rows": rows, "mismatches": mism})
+        return {"all_days": True, "days": days}
+
+    report_date = date or (dates[-1] if dates else "")
+    rows, mism = _branch_report_for_date(u, branches, sales_all, shifts_all, resolve, report_date)
+    return {"all_days": False, "date": report_date, "rows": rows, "mismatches": mism}
+
+
+@app.get("/api/report/branches")
+async def report_branches(u: str = Depends(auth), date: str = Query(None),
+                          all_days: bool = Query(False)):
+    return _branch_report_payload(u, date, all_days)
+
+
+@app.get("/api/report/branches/export")
+async def export_branch_report(u: str = Depends(auth), date: str = Query(None),
+                               all_days: bool = Query(False)):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    data = _branch_report_payload(u, date, all_days)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "דוח סניפים"
+    ws.sheet_view.rightToLeft = True
+
+    hdr_fill = PatternFill("solid", fgColor="2F5496")
+    hdr_font = Font(bold=True, color="FFFFFF", size=10)
+    center   = Alignment(horizontal="center", vertical="center")
+    thin     = Side(style="thin", color="B0B0B0")
+    border   = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ws.append(["תאריך", "מספר", "שם סניף", "שעות", "מכירות"])
+    for c in ws[1]:
+        c.font = hdr_font; c.fill = hdr_fill; c.alignment = center; c.border = border
+
+    groups = data["days"] if data.get("all_days") else [{"date": data.get("date", ""), "rows": data.get("rows", [])}]
+    for g in groups:
+        for r in g["rows"]:
+            ws.append([r.get("date", g["date"]), r.get("number", ""), r.get("name", ""),
+                       r.get("hours", 0), r.get("sales", 0)])
+            for c in ws[ws.max_row]:
+                c.alignment = center; c.border = border
+
+    for col in ws.columns:
+        w = max((len(str(c.value or "")) for c in col), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(w + 4, 26)
+
+    out = Path(tempfile.mktemp(suffix=".xlsx"))
+    wb.save(str(out))
+    payload = out.read_bytes()
+    out.unlink(missing_ok=True)
+    suffix = "all_days" if data.get("all_days") else (data.get("date", "") or "report").replace("/", "-")
+    return Response(
+        content=payload,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="branch_report_{suffix}.xlsx"'},
+    )
 
 
 @app.get("/api/report/export")
@@ -2802,7 +2858,12 @@ def _salary_aggregate(u: str, month: str) -> dict:
     arnakot   = _load_arnakot(u)
     resolve   = _worker_resolver(u)
 
-    by_name = {w.get("full_name", "").strip(): w for w in workers if w.get("full_name")}
+    # Managers are excluded from salary entirely (their pay is handled separately)
+    by_name = {
+        w.get("full_name", "").strip(): w
+        for w in workers
+        if w.get("full_name") and w.get("rank") != "manager"
+    }
 
     def in_month(d):
         return _date_to_ym(str(d)) == month
