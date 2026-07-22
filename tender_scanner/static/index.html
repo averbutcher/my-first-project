@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.5 · made by klod averbutcher</div>
+    <div class="login-ver">v2.6 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.5 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.6 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -270,6 +270,13 @@ details.sb-exp summary::before{content:"▶ "}
 
     <!-- Recruiter Analysis -->
     <div id="recruiter-app" class="hidden"></div>
+
+    <!-- נתיב האור -->
+    <div id="netiv-app" class="hidden">
+      <div class="page-eyebrow">Electra Target Tools</div>
+      <div class="page-title">🕯️ נתיב האור</div>
+      <div id="netiv-content"></div>
+    </div>
 
 
     <!-- No access -->
@@ -506,6 +513,7 @@ const ALL_APPS = [
   ['tender_scanner',      '🔍', 'סריקת מכרזים'],
   ['shift_comparison',    '📊', 'השוואת משמרות'],
   ['recruiter_analysis',  '👥', 'ניתוח מגייסים'],
+  ['netiv_haor',          '🕯️', 'נתיב האור'],
 ];
 
 function renderSidebar() {
@@ -602,7 +610,7 @@ async function saveSbShiftsSettings() {
 // MAIN ROUTING
 // ══════════════════════════════════════════
 function renderMain() {
-  ['tender-app','shifts-app','recruiter-app','no-access-app'].forEach(id =>
+  ['tender-app','shifts-app','recruiter-app','netiv-app','no-access-app'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
   const userApps = new Set(S.user.apps || []);
   if (!userApps.has(S.activeApp)) {
@@ -618,6 +626,9 @@ function renderMain() {
   } else if (S.activeApp === 'recruiter_analysis') {
     document.getElementById('recruiter-app').classList.remove('hidden');
     renderRecruiterApp();
+  } else if (S.activeApp === 'netiv_haor') {
+    document.getElementById('netiv-app').classList.remove('hidden');
+    renderNetivApp();
   }
 }
 
@@ -1273,6 +1284,297 @@ async function saveSettings() {
   S.settings.labor_costs.simple_hourly_ils = parseInt(document.getElementById('st-hourly').value);
   await POST('/api/settings', S.settings);
   document.getElementById('st-msg').innerHTML = `<div class="success" style="margin-top:.75rem">✅ ההגדרות נשמרו!</div>`;
+}
+
+// ══════════════════════════════════════════
+// נתיב האור — work arrangements
+// ══════════════════════════════════════════
+
+let _netivTab = 'arrangement';       // 'arrangement' | 'workers'
+let _netivData = null;               // last /api/netiv/arrangement response
+let _netivWorkers = [];
+let _netivSearch = '';
+let _netivIgnoreWarnings = false;
+
+function renderNetivApp() {
+  const el = document.getElementById('netiv-content');
+  const tabBar = `
+    <div class="tabs" style="margin-bottom:1.2rem">
+      <div class="tab ${_netivTab==='arrangement'?'active':''}" onclick="switchNetivTab('arrangement')">🗓️ סידור עבודה</div>
+      <div class="tab ${_netivTab==='workers'?'active':''}" onclick="switchNetivTab('workers')">👷 מדריכים</div>
+    </div>`;
+
+  if (_netivTab === 'workers') {
+    el.innerHTML = tabBar + `<div id="netiv-workers-content"><div class="info">טוען...</div></div>`;
+    loadNetivWorkers();
+    return;
+  }
+
+  el.innerHTML = tabBar + `
+    <div style="max-width:520px;margin-bottom:1.2rem">
+      <div class="upload-area" id="netiv-upload-area" onclick="document.getElementById('netiv-file').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="netivDrop(event)">
+        <input type="file" id="netiv-file" accept=".xlsx,.xls" style="display:none" onchange="uploadNetivExcel(this.files[0])">
+        <div style="font-size:1.8rem">📂</div>
+        <span class="upload-label">לחץ או גרור את קובץ המשימות</span>
+        <div id="netiv-upload-status" style="font-size:.8rem;color:var(--accent);margin-top:.3rem"></div>
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.4rem">העלאה מחליפה את הנתונים הקיימים</div>
+    </div>
+    <div id="netiv-arrangement"><div class="info">טוען...</div></div>`;
+  loadNetivArrangement();
+}
+
+function switchNetivTab(t) { _netivTab = t; renderNetivApp(); }
+
+function netivDrop(e) {
+  e.preventDefault();
+  document.getElementById('netiv-upload-area').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) uploadNetivExcel(f);
+}
+
+async function uploadNetivExcel(file) {
+  if (!file) return;
+  const set = (msg, color='var(--accent)') => {
+    const s = document.getElementById('netiv-upload-status');
+    if (s) { s.textContent = msg; s.style.color = color; }
+  };
+  set('⏳ מעלה ומעבד...');
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await api('POST', '/api/netiv/upload', fd, true);
+    if (res?.ok) {
+      set(`✅ ${res.count} משימות נטענו · ${res.weeks} שבועות${res.workers_added ? ` · ${res.workers_added} מדריכים חדשים` : ''}`, 'var(--success)');
+      _netivIgnoreWarnings = false;
+      await loadNetivArrangement();
+    }
+  } catch(e) {
+    set(`❌ שגיאה: ${e.message}`, 'var(--red)');
+  }
+}
+
+async function loadNetivArrangement(week) {
+  const el = document.getElementById('netiv-arrangement');
+  if (!el) return;
+  try {
+    const qs = week ? `?week=${encodeURIComponent(week)}` : '';
+    _netivData = await api('GET', '/api/netiv/arrangement' + qs);
+    renderNetivArrangement();
+  } catch(e) {
+    el.innerHTML = `<div class="error">שגיאה: ${esc(e.message)}</div>`;
+  }
+}
+
+function onNetivWeekChange(v) { loadNetivArrangement(v); }
+function netivIgnoreWarnings() { _netivIgnoreWarnings = true; renderNetivArrangement(); }
+
+function filterNetivGuides(q) {
+  _netivSearch = q || '';
+  const needle = _netivSearch.trim().toLowerCase();
+  let shown = 0;
+  document.querySelectorAll('.netiv-guide').forEach(el => {
+    const match = !needle || (el.dataset.name || '').toLowerCase().includes(needle);
+    el.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  const c = document.getElementById('netiv-search-count');
+  if (c) c.textContent = needle ? `${shown} מדריכים` : '';
+}
+
+function netivCellHtml(items) {
+  if (!items || !items.length) return '';
+  const one = it => {
+    const line = (label, val) => val ? `<div><span style="color:var(--muted)">${label}:</span> ${esc(val)}</div>` : '';
+    return `<div>
+      ${line('עיר', it.city)}${line('בית ספר', it.school)}${line('כתובת', it.address)}
+      ${line('איש קשר', it.contact_name)}${line('טלפון', it.contact_phone)}
+      ${line('כיתה', it.class_name)}${line('הערות', it.notes)}
+    </div>`;
+  };
+  // More than one session in the same slot: stack them with a divider
+  return items.map(one).join('<hr style="border:none;border-top:1px dashed var(--red);margin:.3rem 0">');
+}
+
+function renderNetivArrangement() {
+  const el = document.getElementById('netiv-arrangement');
+  const d = _netivData;
+  if (!el || !d) return;
+
+  if (!d.weeks.length) {
+    el.innerHTML = '<div class="info">אין נתונים. העלה קובץ משימות כדי להתחיל.</div>';
+    return;
+  }
+
+  const weekSel = `
+    <select class="sb-input" style="width:auto;min-width:170px" onchange="onNetivWeekChange(this.value)">
+      ${d.weeks.map(w => `<option value="${w.value}" ${w.value===d.week?'selected':''}>${esc(w.label)}</option>`).join('')}
+    </select>`;
+
+  let warnHtml = '';
+  if (d.warnings.length && !_netivIgnoreWarnings) {
+    warnHtml = `
+      <div style="margin-bottom:1rem;padding:.7rem .9rem;background:var(--warn-bg,#fff3cd);border:1px solid #ffc107;border-radius:var(--radius)">
+        <div style="font-weight:600;font-size:.85rem;margin-bottom:.4rem">⚠️ ${d.warnings.length} אזהרות</div>
+        <div style="font-size:.8rem;display:flex;flex-direction:column;gap:.2rem;max-height:220px;overflow-y:auto">
+          ${d.warnings.map(w => `<div>• ${esc(w.text)}</div>`).join('')}
+        </div>
+        <button class="btn btn-outline btn-sm" style="margin-top:.6rem" onclick="netivIgnoreWarnings()">התעלם והצג את הסידור</button>
+      </div>`;
+  } else if (d.warnings.length) {
+    warnHtml = `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">⚠️ ${d.warnings.length} אזהרות (מוסתרות) —
+      <a href="#" onclick="_netivIgnoreWarnings=false;renderNetivArrangement();return false" style="color:var(--accent)">הצג</a></div>`;
+  }
+
+  const hours = d.hours;
+  const th = t => `<th style="white-space:nowrap;font-size:.75rem;padding:.35rem .5rem">${esc(t)}</th>`;
+
+  const guidesHtml = d.guides.map(g => `
+    <div class="netiv-guide" data-name="${esc(g.name)}" style="margin-bottom:1.6rem">
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.4rem">
+        <span style="font-weight:700;font-size:.95rem">${esc(g.name)}</span>
+        ${g.guide_id ? `<span style="font-size:.8rem;color:var(--muted)">ת.ז: ${esc(g.guide_id)}</span>` : ''}
+        ${g.phone ? `<span style="font-size:.8rem;color:var(--muted)">📞 ${esc(g.phone)}</span>` : ''}
+        <a class="btn btn-outline btn-sm" style="font-size:.75rem"
+           href="/api/netiv/arrangement/pdf?week=${encodeURIComponent(d.week)}&guide=${encodeURIComponent(g.name)}">📄 PDF</a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl tbl-grid" style="font-size:.72rem;width:100%">
+          <thead><tr>${th('תאריך')}${hours.map(th).join('')}</tr></thead>
+          <tbody>
+            ${g.rows.map(r => `<tr>
+              <td style="text-align:center;white-space:nowrap;font-weight:600">${esc(r.date)}</td>
+              ${r.cells.map(c => `<td style="vertical-align:top;line-height:1.35">${netivCellHtml(c)}</td>`).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
+      <label style="font-weight:600;font-size:.9rem">📅 שבוע</label>
+      ${weekSel}
+      <input type="text" placeholder="🔍 חיפוש מדריך..." value="${esc(_netivSearch)}" oninput="filterNetivGuides(this.value)"
+        style="width:200px;padding:.3rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text)">
+      <span id="netiv-search-count" style="font-size:.78rem;color:var(--muted)"></span>
+      <a class="btn btn-outline btn-sm" href="/api/netiv/arrangement/pdf?week=${encodeURIComponent(d.week)}">📄 PDF לכל המדריכים</a>
+      <span style="font-size:.78rem;color:var(--muted);margin-right:auto">${d.guides.length} מדריכים · כל הדרכה ${d.session_minutes} דקות</span>
+    </div>
+    ${warnHtml}
+    ${d.guides.length ? guidesHtml : '<div class="info">אין הדרכות בשבוע זה.</div>'}`;
+
+  if (_netivSearch) filterNetivGuides(_netivSearch);
+}
+
+// ── מדריכים tab ──────────────────────────────────────────────────────────────
+
+async function loadNetivWorkers() {
+  _netivWorkers = await GET('/api/netiv/workers') || [];
+  renderNetivWorkers();
+}
+
+function renderNetivWorkers() {
+  const el = document.getElementById('netiv-workers-content');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+      <button class="btn btn-primary" style="font-size:.82rem" onclick="showAddNetivWorker()">+ הוסף מדריך</button>
+      <span style="font-size:.8rem;color:var(--muted);margin-right:auto">${_netivWorkers.length} מדריכים</span>
+    </div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:1rem">
+      מדריכים נוספים אוטומטית מקובץ המשימות. מספר הטלפון כאן הוא זה שישמש לשליחה בוואטסאפ.
+    </p>
+    <div id="netiv-worker-form"></div>
+    ${_netivWorkers.length === 0 ? '<div class="info">אין מדריכים. העלה קובץ משימות או הוסף ידנית.</div>' : `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:var(--surface);text-align:right">
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">שם מלא</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">ת.ז</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">טלפון</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)">הערות</th>
+          <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
+        </tr></thead>
+        <tbody>${_netivWorkers.map(netivWorkerRowHtml).join('')}</tbody>
+      </table>
+    </div>`}`;
+}
+
+function netivWorkerRowHtml(w) {
+  return `<tr id="nw-${w.id}" style="border-bottom:1px solid var(--border)">
+    <td style="padding:.4rem .6rem;font-weight:600">${esc(w.full_name||'')}</td>
+    <td style="padding:.4rem .6rem">${esc(w.id_number||'')}</td>
+    <td style="padding:.4rem .6rem;direction:ltr;text-align:right">${esc(w.phone||'')}</td>
+    <td style="padding:.4rem .6rem;color:var(--muted)">${esc(w.notes||'')}</td>
+    <td style="padding:.4rem .6rem;white-space:nowrap">
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem" onclick="editNetivWorker('${w.id}')">✏️</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .45rem;color:var(--red)" onclick="deleteNetivWorker('${w.id}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+function netivWorkerFields(w) {
+  const inp = (f, v, ph, width='130px') =>
+    `<input value="${esc(v||'')}" data-field="${f}" placeholder="${ph}"
+      style="width:${width};padding:.25rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg);color:var(--text)">`;
+  return `${inp('full_name', w.full_name, 'שם מלא', '150px')}
+          ${inp('id_number', w.id_number, 'ת.ז', '100px')}
+          ${inp('phone', w.phone, 'טלפון', '120px')}
+          ${inp('notes', w.notes, 'הערות', '160px')}`;
+}
+
+function showAddNetivWorker() {
+  const area = document.getElementById('netiv-worker-form');
+  if (!area) return;
+  area.innerHTML = `
+    <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem">
+      <span style="font-size:.82rem;font-weight:600;margin-left:.5rem">מדריך חדש:</span>
+      ${netivWorkerFields({})}
+      <button class="btn btn-primary" style="font-size:.78rem;padding:.2rem .6rem" onclick="submitNetivWorker()">הוסף</button>
+      <button class="btn btn-outline" style="font-size:.78rem;padding:.2rem .6rem" onclick="document.getElementById('netiv-worker-form').innerHTML=''">ביטול</button>
+    </div>`;
+}
+
+async function submitNetivWorker() {
+  const area = document.getElementById('netiv-worker-form');
+  const data = {};
+  area.querySelectorAll('[data-field]').forEach(i => { data[i.dataset.field] = i.value.trim(); });
+  if (!data.full_name) { toast('שם מלא הוא שדה חובה', 'error'); return; }
+  await api('POST', '/api/netiv/workers', data);
+  await loadNetivWorkers();
+}
+
+function editNetivWorker(id) {
+  const tr = document.getElementById('nw-' + id);
+  const w = _netivWorkers.find(x => x.id === id);
+  if (!tr || !w) return;
+  tr.innerHTML = `
+    <td colspan="4" style="padding:.3rem .4rem">
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">${netivWorkerFields(w)}</div>
+    </td>
+    <td style="padding:.3rem .4rem;white-space:nowrap">
+      <button class="btn btn-primary" style="font-size:.75rem;padding:.15rem .5rem" onclick="saveNetivWorker('${id}')">שמור</button>
+      <button class="btn btn-outline" style="font-size:.75rem;padding:.15rem .5rem" onclick="renderNetivWorkers()">ביטול</button>
+    </td>`;
+}
+
+async function saveNetivWorker(id) {
+  const tr = document.getElementById('nw-' + id);
+  const prev = _netivWorkers.find(x => x.id === id) || {};
+  const data = { ...prev, id };
+  tr.querySelectorAll('[data-field]').forEach(i => { data[i.dataset.field] = i.value.trim(); });
+  await api('PUT', `/api/netiv/workers/${id}`, data);
+  await loadNetivWorkers();
+}
+
+async function deleteNetivWorker(id) {
+  if (!confirm('למחוק מדריך זה?')) return;
+  await api('DELETE', `/api/netiv/workers/${id}`);
+  await loadNetivWorkers();
 }
 
 // ══════════════════════════════════════════

@@ -9,6 +9,7 @@ credentials:
         - tender_scanner
         - shift_comparison
         - recruiter_analysis
+        - netiv_haor
     dorra:
       email: DorRa@electra-target.co.il
       name: Dor Racket
@@ -17,6 +18,7 @@ credentials:
       apps:
         - tender_scanner
         - shift_comparison
+        - netiv_haor
     vadim:
       email: vadim@electra-target.co.il
       name: Vadim
@@ -26,6 +28,7 @@ credentials:
         - tender_scanner
         - shift_comparison
         - recruiter_analysis
+        - netiv_haor
     shirnuri:
       email: shirnuri@electra-target.co.il
       name: Shir Nuri

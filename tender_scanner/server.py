@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from analyzer import analyze_tender, distill_knowledge, SYSTEM_PROMPT
 from engine import load_config, save_config, parse_message, parse_excel, compare, export_to_excel, find_suspicious_lines
-from matching import BranchMatcher, build_worker_matcher, normalize_match_text
+from matching import BranchMatcher, NameMatcher, build_worker_matcher, normalize_match_text
 from scraper import Tender, _extract_id_from_url, _extract_pdf_text_from_bytes, fetch_tender_detail, fetch_tender_list
 from state import filter_new, load_seen, save_seen
 
@@ -3129,6 +3129,444 @@ async def salary_export(u: str = Depends(auth), month: str = Query(...)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+# ── נתיב האור (Netiv HaOr) — guide work arrangements ──────────────────────────
+# Data is shared across the managers who have access, not per-user.
+
+NETIV_TASKS_FILE   = BASE_DIR / "data" / "shared" / "netiv_tasks.json"
+NETIV_WORKERS_FILE = BASE_DIR / "data" / "shared" / "netiv_workers.json"
+
+# Excel header text -> internal field. Matched case-insensitively by substring.
+NETIV_COLUMNS = [
+    ("guide_name",    ["שם מדריך"]),
+    ("guide_id",      ["תז מדריך (לסופרפורם)", "תז מדריך", "ת.ז מדריך"]),
+    ("guide_phone",   ["טלפון מדריך"]),
+    ("school",        ["שם בית ספר", "בית ספר"]),
+    ("address",       ["כתובת"]),
+    ("city",          ["עיר"]),
+    ("contact_name",  ["שם איש קשר"]),
+    ("contact_phone", ["טלפון איש קשר"]),
+    ("contact_email", ["מייל איש קשר"]),
+    ("region",        ["אזור"]),
+    ("institution",   ["סמל מוסד"]),
+    ("date",          ["תאריך"]),
+    ("class_name",    ["כיתה"]),
+    ("hour",          ["שעות", "שעה"]),
+    ("lesson_num",    ["מס' הדרכה", "מס הדרכה"]),
+    ("notes",         ["הערות"]),
+    ("done",          ["בוצע שיעור"]),
+]
+
+SESSION_MINUTES = 45  # every session is a fixed 45 minutes
+
+
+def _load_netiv_tasks() -> list:
+    return _rj(NETIV_TASKS_FILE, [])
+
+def _save_netiv_tasks(tasks: list):
+    _wj(NETIV_TASKS_FILE, tasks)
+
+def _load_netiv_workers() -> list:
+    return _rj(NETIV_WORKERS_FILE, [])
+
+def _save_netiv_workers(workers: list):
+    _wj(NETIV_WORKERS_FILE, workers)
+
+
+def _netiv_norm_time(val) -> str:
+    """Normalize a session start time to 'HH:MM' (24h). Accepts '12:00 PM',
+    '13:00', datetime/time objects and Excel fractions."""
+    if val is None or val == "":
+        return ""
+    if hasattr(val, "strftime") and hasattr(val, "hour"):
+        return val.strftime("%H:%M")
+    if isinstance(val, (int, float)) and 0 <= float(val) <= 1:
+        total = round(float(val) * 86400)
+        return f"{(total // 3600) % 24:02d}:{(total % 3600) // 60:02d}"
+    s = str(val).strip().upper().replace(".", "")
+    m = re.match(r"^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$", s)
+    if not m:
+        return str(val).strip()
+    hh, mm, ampm = int(m.group(1)), int(m.group(2)), m.group(3)
+    if ampm == "PM" and hh != 12:
+        hh += 12
+    elif ampm == "AM" and hh == 12:
+        hh = 0
+    return f"{hh:02d}:{mm:02d}"
+
+
+def _netiv_norm_date(val) -> str:
+    """Normalize a date to DD/MM/YYYY."""
+    if val is None or val == "":
+        return ""
+    if hasattr(val, "strftime"):
+        return val.strftime("%d/%m/%Y")
+    s = str(val).strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return f"{m.group(3)}/{m.group(2)}/{m.group(1)}"
+    return s
+
+
+def _netiv_week_start(ddmmyyyy: str) -> str:
+    """Sunday of that date's week, as YYYY-MM-DD (Israeli week: Sun-Sat)."""
+    from datetime import date as _date, timedelta as _td
+    try:
+        d, m, y = ddmmyyyy.split("/")
+        dt = _date(int(y), int(m), int(d))
+    except Exception:
+        return ""
+    # Python weekday(): Mon=0 .. Sun=6  ->  days since Sunday
+    return (dt - _td(days=(dt.weekday() + 1) % 7)).isoformat()
+
+
+def _netiv_week_label(week_start_iso: str) -> str:
+    from datetime import date as _date, timedelta as _td
+    try:
+        y, m, d = map(int, week_start_iso.split("-"))
+        start = _date(y, m, d)
+    except Exception:
+        return week_start_iso
+    end = start + _td(days=6)
+    return f"{start.strftime('%d/%m')}–{end.strftime('%d/%m/%Y')}"
+
+
+@app.post("/api/netiv/upload")
+async def netiv_upload(u: str = Depends(auth), file: UploadFile = File(...)):
+    import pandas as pd, uuid as _uuid
+    contents = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp.write(contents)
+        tmp_path = Path(tmp.name)
+    try:
+        raw = pd.read_excel(str(tmp_path), header=None)
+
+        # The monday.com export has preamble rows; find the real header row
+        header_idx = None
+        for i in range(min(len(raw), 30)):
+            row_text = " ".join(str(v) for v in raw.iloc[i].tolist() if v is not None)
+            if "שם מדריך" in row_text:
+                header_idx = i
+                break
+        if header_idx is None:
+            raise HTTPException(400, "לא נמצאה שורת כותרת עם 'שם מדריך' בקובץ")
+
+        headers = [str(v).strip() if v is not None else "" for v in raw.iloc[header_idx].tolist()]
+        col_of: dict = {}
+        for field, keys in NETIV_COLUMNS:
+            for ci, h in enumerate(headers):
+                if ci in col_of.values() or not h or h == "nan":
+                    continue
+                if any(k.lower() in h.lower() for k in keys):
+                    col_of[field] = ci
+                    break
+
+        def cell(row, field) -> str:
+            ci = col_of.get(field)
+            if ci is None or ci >= len(row):
+                return ""
+            v = row.iloc[ci]
+            if v is None:
+                return ""
+            try:
+                if pd.isna(v):
+                    return ""
+            except (TypeError, ValueError):
+                pass
+            return v if field in ("date", "hour") else str(v).strip()
+
+        tasks = []
+        for i in range(header_idx + 1, len(raw)):
+            row = raw.iloc[i]
+            guide  = str(cell(row, "guide_name") or "").strip()
+            school = str(cell(row, "school") or "").strip()
+            date_s = _netiv_norm_date(cell(row, "date"))
+            # Skip monday.com summary/aggregation rows: they carry a date but
+            # no guide and no school
+            if not date_s or (not guide and not school):
+                continue
+            tasks.append({
+                "id":            str(_uuid.uuid4()),
+                "guide_name":    guide,
+                "guide_id":      str(cell(row, "guide_id") or "").strip(),
+                "guide_phone":   str(cell(row, "guide_phone") or "").strip(),
+                "school":        school,
+                "address":       str(cell(row, "address") or "").strip(),
+                "city":          str(cell(row, "city") or "").strip(),
+                "contact_name":  str(cell(row, "contact_name") or "").strip(),
+                "contact_phone": str(cell(row, "contact_phone") or "").strip(),
+                "contact_email": str(cell(row, "contact_email") or "").strip(),
+                "region":        str(cell(row, "region") or "").strip(),
+                "institution":   str(cell(row, "institution") or "").strip(),
+                "date":          date_s,
+                "week":          _netiv_week_start(date_s),
+                "class_name":    str(cell(row, "class_name") or "").strip(),
+                "hour":          _netiv_norm_time(cell(row, "hour")),
+                "lesson_num":    str(cell(row, "lesson_num") or "").strip(),
+                "notes":         str(cell(row, "notes") or "").strip(),
+                "done":          str(cell(row, "done") or "").strip(),
+            })
+
+        _save_netiv_tasks(tasks)  # a new upload replaces the previous file
+        added = _netiv_sync_workers(tasks)
+        weeks = sorted({t["week"] for t in tasks if t["week"]})
+        return {"ok": True, "count": len(tasks), "workers_added": added, "weeks": len(weeks)}
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _netiv_sync_workers(tasks: list) -> int:
+    """Auto-add guides seen in the tasks to the workers list. Existing workers
+    keep their (possibly hand-corrected) phone number."""
+    import uuid as _uuid
+    workers = _load_netiv_workers()
+    matcher = NameMatcher([w.get("full_name", "") for w in workers])
+    by_name = {normalize_match_text(w.get("full_name", "")): w for w in workers}
+    added = 0
+    for t in tasks:
+        name = normalize_match_text(t.get("guide_name", ""))
+        if not name:
+            continue
+        if matcher.resolve(name) or name in by_name:
+            continue
+        w = {
+            "id":        str(_uuid.uuid4()),
+            "full_name": t["guide_name"].strip(),
+            "id_number": t.get("guide_id", ""),
+            "phone":     t.get("guide_phone", ""),
+            "notes":     "",
+        }
+        workers.append(w)
+        by_name[name] = w
+        matcher = NameMatcher([x.get("full_name", "") for x in workers])
+        added += 1
+    if added:
+        _save_netiv_workers(workers)
+    return added
+
+
+UNASSIGNED_GUIDE = "ללא מדריך"
+
+
+def _netiv_build_week(week: str = None):
+    """Arrangement for one week: per-guide blocks plus warnings."""
+    tasks = _load_netiv_tasks()
+    weeks = sorted({t["week"] for t in tasks if t.get("week")})
+    if not weeks:
+        return {"weeks": [], "week": "", "week_label": "", "hours": [], "guides": [], "warnings": []}
+    sel = week if week in weeks else weeks[-1]
+    in_week = [t for t in tasks if t.get("week") == sel]
+
+    workers = _load_netiv_workers()
+    phone_by_name = {normalize_match_text(w.get("full_name", "")): w.get("phone", "") for w in workers}
+    id_by_name    = {normalize_match_text(w.get("full_name", "")): w.get("id_number", "") for w in workers}
+
+    hours = sorted({t["hour"] for t in in_week if t.get("hour")})
+
+    # guide -> date -> hour -> [tasks]
+    guides: dict = {}
+    for t in in_week:
+        gname = t.get("guide_name", "").strip() or UNASSIGNED_GUIDE
+        g = guides.setdefault(gname, {})
+        g.setdefault(t.get("date", ""), {}).setdefault(t.get("hour", ""), []).append(t)
+
+    warnings = []
+    for gname, dates in guides.items():
+        for d, by_hour in dates.items():
+            for h, items in by_hour.items():
+                if len(items) > 1:
+                    warnings.append({
+                        "type": "overlap",
+                        "guide": gname, "date": d, "hour": h,
+                        "text": f"{gname} — {d} בשעה {h}: {len(items)} הדרכות באותו זמן "
+                                f"({', '.join(i.get('school','') or '—' for i in items)})",
+                    })
+    for t in in_week:
+        if not t.get("guide_name", "").strip():
+            warnings.append({
+                "type": "no_guide", "guide": UNASSIGNED_GUIDE,
+                "date": t.get("date", ""), "hour": t.get("hour", ""),
+                "text": f"הדרכה ללא מדריך — {t.get('date','')} {t.get('hour','')} "
+                        f"{t.get('school','') or ''} ({t.get('city','') or ''})",
+            })
+        if str(t.get("done", "")).strip().upper() == "V":
+            warnings.append({
+                "type": "already_done", "guide": t.get("guide_name", "") or UNASSIGNED_GUIDE,
+                "date": t.get("date", ""), "hour": t.get("hour", ""),
+                "text": f"הדרכה כבר מסומנת כבוצעה — {t.get('guide_name','') or UNASSIGNED_GUIDE}, "
+                        f"{t.get('date','')} {t.get('hour','')} {t.get('school','') or ''}",
+            })
+
+    def date_key(d):
+        try:
+            dd, mm, yy = d.split("/")
+            return f"{yy}-{mm}-{dd}"
+        except Exception:
+            return d
+
+    out_guides = []
+    for gname in sorted(guides, key=lambda n: (n == UNASSIGNED_GUIDE, n)):
+        key = normalize_match_text(gname)
+        rows = []
+        for d in sorted(guides[gname], key=date_key):
+            cells = []
+            for h in hours:
+                cells.append([
+                    {
+                        "school": t.get("school", ""), "city": t.get("city", ""),
+                        "address": t.get("address", ""), "contact_name": t.get("contact_name", ""),
+                        "contact_phone": t.get("contact_phone", ""), "class_name": t.get("class_name", ""),
+                        "notes": t.get("notes", ""),
+                    }
+                    for t in guides[gname][d].get(h, [])
+                ])
+            rows.append({"date": d, "cells": cells})
+        out_guides.append({
+            "name": gname,
+            "guide_id": id_by_name.get(key, "") or next((t.get("guide_id", "") for d in guides[gname]
+                        for h in guides[gname][d] for t in guides[gname][d][h] if t.get("guide_id")), ""),
+            "phone": phone_by_name.get(key, ""),
+            "rows": rows,
+        })
+
+    return {
+        "weeks": [{"value": w, "label": _netiv_week_label(w)} for w in weeks],
+        "week": sel, "week_label": _netiv_week_label(sel),
+        "hours": hours, "guides": out_guides, "warnings": warnings,
+        "session_minutes": SESSION_MINUTES,
+    }
+
+
+@app.get("/api/netiv/arrangement")
+async def netiv_arrangement(_: str = Depends(auth), week: str = Query(None)):
+    return _netiv_build_week(week)
+
+
+@app.get("/api/netiv/workers")
+async def netiv_get_workers(_: str = Depends(auth)):
+    return _load_netiv_workers()
+
+
+@app.post("/api/netiv/workers")
+async def netiv_add_worker(body: dict, _: str = Depends(auth)):
+    import uuid as _uuid
+    workers = _load_netiv_workers()
+    body["id"] = str(_uuid.uuid4())
+    if not (body.get("full_name") or "").strip():
+        raise HTTPException(400, "שם מלא הוא שדה חובה")
+    workers.append(body)
+    _save_netiv_workers(workers)
+    return {"ok": True}
+
+
+@app.put("/api/netiv/workers/{worker_id}")
+async def netiv_update_worker(worker_id: str, body: dict, _: str = Depends(auth)):
+    workers = _load_netiv_workers()
+    for i, w in enumerate(workers):
+        if w.get("id") == worker_id:
+            body["id"] = worker_id
+            workers[i] = body
+            _save_netiv_workers(workers)
+            return {"ok": True}
+    raise HTTPException(404, "עובד לא נמצא")
+
+
+@app.delete("/api/netiv/workers/{worker_id}")
+async def netiv_delete_worker(worker_id: str, _: str = Depends(auth)):
+    _save_netiv_workers([w for w in _load_netiv_workers() if w.get("id") != worker_id])
+    return {"ok": True}
+
+
+@app.get("/api/netiv/arrangement/pdf")
+async def netiv_arrangement_pdf(_: str = Depends(auth), week: str = Query(None),
+                                guide: str = Query(None)):
+    """Weekly arrangement as PDF. With ?guide=<name> it contains only that
+    guide — which is what each worker will receive."""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from bidi.algorithm import get_display
+    import io
+
+    data = _netiv_build_week(week)
+    guides = data["guides"]
+    if guide:
+        guides = [g for g in guides if g["name"] == guide]
+        if not guides:
+            raise HTTPException(404, "לא נמצא סידור עבודה למדריך זה בשבוע הנבחר")
+
+    if "DejaVu" not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont("DejaVu", str(BASE_DIR / "fonts" / "DejaVuSans.ttf")))
+        pdfmetrics.registerFont(TTFont("DejaVu-Bold", str(BASE_DIR / "fonts" / "DejaVuSans-Bold.ttf")))
+
+    def heb(t):
+        return get_display(str(t))
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
+                            rightMargin=8*mm, leftMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
+    title_style = ParagraphStyle("t", fontName="DejaVu-Bold", fontSize=13, alignment=2)
+    sub_style   = ParagraphStyle("s", fontName="DejaVu", fontSize=9, alignment=2)
+    cell_style  = ParagraphStyle("c", fontName="DejaVu", fontSize=6.5, alignment=2, leading=8)
+    elements = []
+
+    hours = data["hours"]
+    for gi, g in enumerate(guides):
+        if gi:
+            elements.append(Spacer(1, 8*mm))
+        header_bits = [g["name"]]
+        if g.get("guide_id"):
+            header_bits.append(f"ת.ז: {g['guide_id']}")
+        elements.append(Paragraph(heb(" | ".join(header_bits)), title_style))
+        elements.append(Paragraph(heb(f"סידור עבודה — שבוע {data['week_label']} (כל הדרכה {SESSION_MINUTES} דקות)"), sub_style))
+        elements.append(Spacer(1, 3*mm))
+
+        # RTL: reverse column order so "תאריך" ends up rightmost
+        head = ["תאריך"] + hours
+        table_data = [[Paragraph(heb(h), cell_style) for h in reversed(head)]]
+        for row in g["rows"]:
+            line = [row["date"]]
+            for cell in row["cells"]:
+                line.append("\n———\n".join(_netiv_cell_text(item) for item in cell) if cell else "")
+            table_data.append([Paragraph(heb(c).replace("\n", "<br/>"), cell_style) for c in reversed(line)])
+
+        col_w = [26*mm] + [(255 - 26) / max(len(hours), 1) * mm] * len(hours)
+        t = Table(table_data, colWidths=list(reversed(col_w)), repeatRows=1)
+        t.setStyle(TableStyle([
+            ("FONTNAME",   (0, 0), (-1, -1), "DejaVu"),
+            ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#2F5496")),
+            ("TEXTCOLOR",  (0, 0), (-1, 0), rl_colors.white),
+            ("GRID",       (0, 0), (-1, -1), 0.4, rl_colors.grey),
+            ("VALIGN",     (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(t)
+
+    doc.build(elements)
+    pdf = buf.getvalue()
+    fname = f"netiv_{(guide or 'all').replace(' ', '_')}_{data['week']}.pdf"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+def _netiv_cell_text(item: dict) -> str:
+    """One session rendered as labelled lines (shared by PDF and Excel)."""
+    parts = [
+        ("עיר", item.get("city")),
+        ("בית ספר", item.get("school")),
+        ("כתובת", item.get("address")),
+        ("איש קשר", item.get("contact_name")),
+        ("טלפון", item.get("contact_phone")),
+        ("כיתה", item.get("class_name")),
+        ("הערות", item.get("notes")),
+    ]
+    return "\n".join(f"{label}: {val}" for label, val in parts if val)
 
 
 # ── Recruiter Analysis ────────────────────────────────────────────────────────
