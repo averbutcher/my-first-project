@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.8 · made by klod averbutcher</div>
+    <div class="login-ver">v2.9 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.8 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.9 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -2129,8 +2129,10 @@ function renderShiftsApp() {
         </select>
         <button class="btn btn-outline btn-sm" onclick="exportReport()">⬇️ ייצוא לאקסל</button>
         <button class="btn btn-outline btn-sm" onclick="exportReportPDF()">📄 ייצוא ל-PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleReportEmailPanel()">📧 שלח במייל</button>
         <button class="btn btn-outline btn-sm" onclick="toggleColorsPanel()">🎨 צבעים</button>
       </div>
+      <div id="report-email-panel" style="display:none;margin-bottom:1rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"></div>
       <div id="colors-panel" style="display:none;margin-bottom:1rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"></div>
       <div id="report-content"><div class="info">טוען...</div></div>
       <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border)">
@@ -3553,6 +3555,62 @@ async function saveReportColors() {
 function exportReportPDF() {
   const m = S.reportMonth || '';
   window.location.href = '/api/report/export/pdf' + (m ? `?month=${m}` : '');
+}
+
+async function toggleReportEmailPanel() {
+  const panel = document.getElementById('report-email-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  panel.innerHTML = '<div class="info" style="margin:0">טוען...</div>';
+  const cfg = await GET('/api/report/email/settings') || {};
+  const monthDisp = S.reportMonth ? fmtMonth(S.reportMonth) : '';
+  panel.innerHTML = `
+    <div style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">📧 שליחת דוח מכירות במייל${monthDisp ? ` — ${esc(monthDisp)}` : ''}</div>
+    ${cfg.configured
+      ? `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">נשלח מהחשבון: ${esc(cfg.sender)} · מצורפים PDF + Excel</div>`
+      : `<div style="font-size:.8rem;color:var(--red);margin-bottom:.5rem">⚠️ חשבון השליחה אינו מוגדר בשרת. יש להגדיר REPORT_EMAIL_USER ו-REPORT_EMAIL_APP_PASSWORD ב-Railway.</div>`}
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <input id="report-email-to" type="email" placeholder="נמען (email)" value="${esc(cfg.recipient||'')}" dir="ltr"
+        style="width:260px;padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text)">
+      <button class="btn btn-primary btn-sm" id="report-email-send" ${cfg.configured?'':'disabled'} onclick="sendReportEmail()">שלח</button>
+      <button class="btn btn-outline btn-sm" id="report-email-test" ${cfg.configured?'':'disabled'} onclick="testReportEmail()">🔌 בדוק חיבור</button>
+      <span id="report-email-status" style="font-size:.8rem"></span>
+    </div>`;
+}
+
+async function testReportEmail() {
+  const status = document.getElementById('report-email-status');
+  const btn = document.getElementById('report-email-test');
+  const set = (msg, color='var(--muted)') => { if (status) { status.textContent = msg; status.style.color = color; } };
+  if (btn) btn.disabled = true;
+  set('⏳ בודק חיבור...');
+  try {
+    const res = await api('POST', '/api/report/email/test', {});
+    if (res?.ok) set(`✅ החיבור תקין (${res.sender})`, 'var(--success)');
+  } catch(e) {
+    set(`❌ ${e.message}`, 'var(--red)');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function sendReportEmail() {
+  const to = document.getElementById('report-email-to')?.value.trim();
+  const status = document.getElementById('report-email-status');
+  const btn = document.getElementById('report-email-send');
+  const set = (msg, color='var(--muted)') => { if (status) { status.textContent = msg; status.style.color = color; } };
+  if (!to || !to.includes('@')) { set('כתובת מייל לא תקינה', 'var(--red)'); return; }
+  if (btn) btn.disabled = true;
+  set('⏳ שולח...');
+  try {
+    const res = await api('POST', '/api/report/email/send', { to, month: S.reportMonth || undefined });
+    if (res?.ok) { set(`✅ נשלח אל ${res.to}`, 'var(--success)'); toast('הדוח נשלח במייל', 'success'); }
+  } catch(e) {
+    set(`❌ ${e.message}`, 'var(--red)');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function onDailyDateChange(val) {

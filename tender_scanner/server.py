@@ -2479,8 +2479,8 @@ async def export_branch_report(u: str = Depends(auth), date: str = Query(None),
     )
 
 
-@app.get("/api/report/export")
-async def export_report(u: str = Depends(auth), month: str = Query(None)):
+def _build_report_xlsx(u: str, month: str = None):
+    """Returns (report_month, xlsx_bytes) for the full sales report."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -2526,7 +2526,12 @@ async def export_report(u: str = Depends(auth), month: str = Query(None)):
     wb.save(str(out))
     data = out.read_bytes()
     out.unlink(missing_ok=True)
+    return report_month, data
 
+
+@app.get("/api/report/export")
+async def export_report(u: str = Depends(auth), month: str = Query(None)):
+    report_month, data = _build_report_xlsx(u, month)
     fname = f"worker_report_{report_month or 'all'}.xlsx"
     from fastapi.responses import Response
     return Response(
@@ -2536,8 +2541,8 @@ async def export_report(u: str = Depends(auth), month: str = Query(None)):
     )
 
 
-@app.get("/api/report/export/pdf")
-async def export_report_pdf(u: str = Depends(auth), month: str = Query(None)):
+def _build_report_pdf(u: str, month: str = None):
+    """Returns (report_month, pdf_bytes) for the full sales report."""
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors as rl_colors
     from reportlab.lib.units import mm
@@ -2617,8 +2622,12 @@ async def export_report_pdf(u: str = Depends(auth), month: str = Query(None)):
         elements.append(t)
 
     doc.build(elements)
-    pdf_data = buf.getvalue()
+    return report_month, buf.getvalue()
 
+
+@app.get("/api/report/export/pdf")
+async def export_report_pdf(u: str = Depends(auth), month: str = Query(None)):
+    report_month, pdf_data = _build_report_pdf(u, month)
     fname = f"worker_report_{report_month or 'all'}.pdf"
     from fastapi.responses import Response
     return Response(
@@ -2626,6 +2635,88 @@ async def export_report_pdf(u: str = Depends(auth), month: str = Query(None)):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+# ── Report email (sales report as PDF + Excel via Gmail SMTP) ──────────────────
+# Sender credentials come from Railway env vars (never stored in the repo):
+#   REPORT_EMAIL_USER          — the sending Gmail address
+#   REPORT_EMAIL_APP_PASSWORD  — a Google App Password for that account
+
+def _report_email_path(u: str) -> Path:
+    return _udir(u) / "report_email.json"
+
+def _load_report_email(u: str) -> dict:
+    return _rj(_report_email_path(u), {"recipient": ""})
+
+@app.get("/api/report/email/settings")
+async def report_email_settings(u: str = Depends(auth)):
+    return {
+        "recipient": _load_report_email(u).get("recipient", ""),
+        "configured": bool(os.environ.get("REPORT_EMAIL_USER") and os.environ.get("REPORT_EMAIL_APP_PASSWORD")),
+        "sender": os.environ.get("REPORT_EMAIL_USER", ""),
+    }
+
+@app.put("/api/report/email/settings")
+async def save_report_email_settings(body: dict, u: str = Depends(auth)):
+    _wj(_report_email_path(u), {"recipient": (body.get("recipient") or "").strip()})
+    return {"ok": True}
+
+@app.post("/api/report/email/test")
+async def test_report_email(u: str = Depends(auth)):
+    """Verify the Gmail login works, without sending anything."""
+    from emailer import verify_gmail_login
+    sender = os.environ.get("REPORT_EMAIL_USER", "").strip()
+    app_pw = os.environ.get("REPORT_EMAIL_APP_PASSWORD", "").strip()
+    if not sender or not app_pw:
+        raise HTTPException(400, "חשבון המייל לשליחה אינו מוגדר בשרת (REPORT_EMAIL_USER / REPORT_EMAIL_APP_PASSWORD)")
+    try:
+        verify_gmail_login(sender, app_pw)
+    except Exception as e:
+        raise HTTPException(502, f"התחברות ל-Gmail נכשלה: {e}")
+    return {"ok": True, "sender": sender}
+
+@app.post("/api/report/email/send")
+async def send_report_email(body: dict, u: str = Depends(auth)):
+    from emailer import send_gmail
+
+    sender   = os.environ.get("REPORT_EMAIL_USER", "").strip()
+    app_pw   = os.environ.get("REPORT_EMAIL_APP_PASSWORD", "").strip()
+    if not sender or not app_pw:
+        raise HTTPException(400, "חשבון המייל לשליחה אינו מוגדר בשרת (REPORT_EMAIL_USER / REPORT_EMAIL_APP_PASSWORD)")
+
+    recipient = (body.get("to") or "").strip() or _load_report_email(u).get("recipient", "").strip()
+    if not recipient:
+        raise HTTPException(400, "לא הוזן נמען")
+    if "@" not in recipient:
+        raise HTTPException(400, "כתובת מייל לא תקינה")
+
+    month = body.get("month")
+    report_month, xlsx = _build_report_xlsx(u, month)
+    _rm, pdf = _build_report_pdf(u, month)
+
+    month_disp = "/".join(report_month.split("-")[::-1]) if report_month else ""
+    subject = f"דוח מכירות — לייף סטייל {month_disp}".strip()
+    html = f"""<html><body style="background:#f5f5f5;padding:20px">
+      <div style="font-family:Arial,sans-serif;direction:rtl;text-align:right;color:#1a1a2e">
+        <h2 style="margin:0 0 8px">דוח מכירות — לייף סטייל</h2>
+        <p style="color:#555">מצורף דוח המכירות המלא{f' לחודש {month_disp}' if month_disp else ''} — קובץ PDF וקובץ Excel.</p>
+        <p style="font-size:12px;color:#999;margin-top:24px">Electra Target Tools</p>
+      </div>
+    </body></html>"""
+
+    fbase = f"sales_report_{report_month or 'all'}"
+    attachments = [
+        (f"{fbase}.pdf",  pdf,  "pdf"),
+        (f"{fbase}.xlsx", xlsx, "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    ]
+    try:
+        send_gmail(sender, app_pw, recipient, subject, html, attachments)
+    except Exception as e:
+        raise HTTPException(502, f"שליחת המייל נכשלה: {e}")
+
+    # Remember the recipient as the new default
+    _wj(_report_email_path(u), {"recipient": recipient})
+    return {"ok": True, "to": recipient, "month": report_month}
 
 
 # ── Holidays ──────────────────────────────────────────────────────────────────

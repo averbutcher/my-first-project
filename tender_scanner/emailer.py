@@ -3,8 +3,44 @@
 import os
 import smtplib
 from datetime import date
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+
+def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
+               attachments=None) -> None:
+    """Send an HTML email (with optional attachments) from a Gmail account via
+    SMTP + app password.
+
+    attachments: list of (filename, bytes, mime_subtype) e.g.
+        ("report.pdf", b"...", "pdf").
+    """
+    recipients = [to] if isinstance(to, str) else list(to)
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = ", ".join(recipients)
+
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(html, "html", "utf-8"))
+    msg.attach(alt)
+
+    for fname, data, subtype in (attachments or []):
+        part = MIMEApplication(data, _subtype=subtype)
+        part.add_header("Content-Disposition", "attachment", filename=fname)
+        msg.attach(part)
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(sender, app_password)
+        server.sendmail(sender, recipients, msg.as_string())
+
+
+def verify_gmail_login(sender: str, app_password: str) -> None:
+    """Log in to Gmail SMTP without sending anything — used to confirm the
+    account + app password are valid. Raises on failure."""
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+        server.login(sender, app_password)
 
 
 def build_html_digest(analyses: list[dict], run_date: str) -> str:
