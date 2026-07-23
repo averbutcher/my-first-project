@@ -3930,10 +3930,13 @@ async def report_gmail_disconnect(u: str = Depends(auth)):
 def _report_sender_email() -> str:
     return (_load_gmail_tokens().get(REPORT_SENDER_KEY, {}) or {}).get("email", "")
 
-def _gmail_account_for(u: str) -> Optional[str]:
+def _gmail_account_for(u: str, need_scope: str = None) -> Optional[str]:
     """Which stored account to use for a Gmail read op: the shared site account
-    if connected, otherwise the per-user connection (legacy fallback)."""
-    if _get_valid_gmail_tokens(REPORT_SENDER_KEY):
+    if connected (and granting need_scope), else the per-user connection
+    (legacy fallback). need_scope guards the transition window where the site
+    account may still be a send-only token from before read+send was requested."""
+    site = _get_valid_gmail_tokens(REPORT_SENDER_KEY)
+    if site and (not need_scope or need_scope in (site.get("scope") or "")):
         return REPORT_SENDER_KEY
     if _get_valid_gmail_tokens(u):
         return u
@@ -3952,8 +3955,9 @@ def _gmail_api_send(access_token: str, raw_b64: str) -> dict:
 
 @app.get("/auth/gmail/status")
 async def gmail_status(u: str = Depends(auth)):
-    # Connected if the shared site account is linked, or (legacy) this user is
-    acct = _gmail_account_for(u)
+    # Connected (for reading clock2go) if the site account grants read, or a
+    # legacy per-user connection exists
+    acct = _gmail_account_for(u, need_scope="gmail.readonly")
     return {
         "connected": bool(acct),
         "site_account": _report_sender_email() if acct == REPORT_SENDER_KEY else "",
@@ -3962,7 +3966,7 @@ async def gmail_status(u: str = Depends(auth)):
 @app.post("/api/shifts/fetch-from-gmail")
 async def fetch_shifts_from_gmail(body: dict = {}, u: str = Depends(auth)):
     import urllib.request, urllib.parse, urllib.error, json as _json, base64
-    acct = _gmail_account_for(u)
+    acct = _gmail_account_for(u, need_scope="gmail.readonly")
     tokens = _get_valid_gmail_tokens(acct) if acct else None
     if not tokens:
         raise HTTPException(400, "Gmail התנתק, יש להתחבר מחדש")
