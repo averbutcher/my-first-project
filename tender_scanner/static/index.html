@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.11 · made by klod averbutcher</div>
+    <div class="login-ver">v2.12 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.11 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.12 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -3557,32 +3557,126 @@ function exportReportPDF() {
   window.location.href = '/api/report/export/pdf' + (m ? `?month=${m}` : '');
 }
 
+let _reportEmail = { recipients: [], subject: '', body: '', configured: false, sender: '', last_date: '' };
+
 async function toggleReportEmailPanel() {
   const panel = document.getElementById('report-email-panel');
   if (!panel) return;
   if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
   panel.style.display = '';
   panel.innerHTML = '<div class="info" style="margin:0">טוען...</div>';
-  const cfg = await GET('/api/report/email/settings') || {};
+  const qs = S.reportMonth ? `?month=${encodeURIComponent(S.reportMonth)}` : '';
+  const cfg = await GET('/api/report/email/settings' + qs) || {};
+  _reportEmail = {
+    recipients: cfg.recipients || [],
+    subject: cfg.subject || '',
+    body: cfg.body || '',
+    configured: !!cfg.configured,
+    sender: cfg.sender || '',
+    last_date: cfg.last_date || '',
+  };
+  renderReportEmailPanel();
+}
+
+function renderReportEmailPanel() {
+  const panel = document.getElementById('report-email-panel');
+  if (!panel) return;
+  const c = _reportEmail;
   const monthDisp = S.reportMonth ? fmtMonth(S.reportMonth) : '';
+  const dateHint = c.last_date
+    ? `<span style="color:var(--muted)">{תאריך} ← ${esc(c.last_date)} (התאריך האחרון בדוח)</span>`
+    : `<span style="color:var(--muted)">{תאריך} ← (אין נתונים)</span>`;
+
+  const chips = c.recipients.length
+    ? c.recipients.map((r, i) => `
+        <span style="display:inline-flex;align-items:center;gap:.3rem;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:.15rem .5rem;font-size:.8rem;direction:ltr">
+          ${esc(r)}
+          <span style="cursor:pointer;color:var(--red);font-weight:700" onclick="removeReportRecipient(${i})">×</span>
+        </span>`).join(' ')
+    : `<span style="font-size:.78rem;color:var(--muted)">לא נבחרו נמענים</span>`;
+
   panel.innerHTML = `
     <div style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">📧 שליחת דוח מכירות במייל${monthDisp ? ` — ${esc(monthDisp)}` : ''}</div>
-    ${cfg.configured
-      ? `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-bottom:.5rem">
-           <span>✅ מחובר: ${esc(cfg.sender||'')} · מצורפים PDF + Excel</span>
+    ${c.configured
+      ? `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-bottom:.7rem">
+           <span>✅ נשלח מ: ${esc(c.sender||'')} · מצורפים PDF + Excel</span>
            <button class="btn btn-outline btn-sm" style="font-size:.72rem" onclick="disconnectReportGmail()">נתק</button>
          </div>`
-      : `<div style="font-size:.8rem;margin-bottom:.5rem">
-           <div style="color:var(--muted);margin-bottom:.4rem">כדי לשלוח, חבר את חשבון ה-Gmail השולח (שליחה דרך Gmail, לא SMTP).</div>
+      : `<div style="font-size:.8rem;margin-bottom:.7rem">
+           <div style="color:var(--muted);margin-bottom:.4rem">כדי לשלוח, חבר את חשבון ה-Gmail השולח (שליחה דרך Gmail).</div>
            <button class="btn btn-primary btn-sm" onclick="connectReportGmail()">🔗 חבר Gmail לשליחה</button>
          </div>`}
+
+    <div style="font-size:.78rem;font-weight:600;margin-bottom:.3rem">נמענים</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:.4rem">${chips}</div>
+    <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.8rem">
+      <input id="report-email-add" type="email" placeholder="הוסף נמען (email)" dir="ltr"
+        onkeydown="if(event.key==='Enter'){addReportRecipient();event.preventDefault();}"
+        style="width:240px;padding:.3rem .55rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text)">
+      <button class="btn btn-outline btn-sm" onclick="addReportRecipient()">➕ הוסף</button>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;margin-bottom:.3rem">נושא <button class="btn btn-outline btn-sm" style="font-size:.68rem;padding:.05rem .35rem" onclick="insertReportToken('report-email-subject')">📅 תאריך</button></div>
+    <input id="report-email-subject" value="${esc(c.subject)}"
+      style="width:100%;max-width:520px;padding:.35rem .55rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);margin-bottom:.7rem">
+
+    <div style="font-size:.78rem;font-weight:600;margin-bottom:.3rem">תוכן ההודעה <button class="btn btn-outline btn-sm" style="font-size:.68rem;padding:.05rem .35rem" onclick="insertReportToken('report-email-body')">📅 תאריך</button></div>
+    <textarea id="report-email-body" rows="5"
+      style="width:100%;max-width:520px;padding:.4rem .55rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);resize:vertical">${esc(c.body)}</textarea>
+    <div style="font-size:.72rem;margin:.3rem 0 .8rem">${dateHint}</div>
+
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-      <input id="report-email-to" type="email" placeholder="נמען (email)" value="${esc(cfg.recipient||'')}" dir="ltr"
-        style="width:260px;padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text)">
-      <button class="btn btn-primary btn-sm" id="report-email-send" ${cfg.configured?'':'disabled'} onclick="sendReportEmail()">שלח</button>
-      <button class="btn btn-outline btn-sm" id="report-email-test" ${cfg.configured?'':'disabled'} onclick="testReportEmail()">🔌 בדוק חיבור</button>
+      <button class="btn btn-primary btn-sm" id="report-email-send" ${c.configured?'':'disabled'} onclick="sendReportEmail()">שלח</button>
+      <button class="btn btn-outline btn-sm" onclick="saveReportEmail()">💾 שמור הגדרות</button>
+      <button class="btn btn-outline btn-sm" id="report-email-test" ${c.configured?'':'disabled'} onclick="testReportEmail()">🔌 בדוק חיבור</button>
       <span id="report-email-status" style="font-size:.8rem"></span>
     </div>`;
+}
+
+// Pull the currently-typed subject/body back into state before a re-render
+function syncReportEmailFields() {
+  const s = document.getElementById('report-email-subject');
+  const b = document.getElementById('report-email-body');
+  if (s) _reportEmail.subject = s.value;
+  if (b) _reportEmail.body = b.value;
+}
+
+function addReportRecipient() {
+  const inp = document.getElementById('report-email-add');
+  const v = (inp?.value || '').trim();
+  if (!v) return;
+  if (!v.includes('@')) { toast('כתובת מייל לא תקינה', 'error'); return; }
+  if (_reportEmail.recipients.includes(v)) { toast('הנמען כבר קיים', 'error'); return; }
+  syncReportEmailFields();
+  _reportEmail.recipients.push(v);
+  renderReportEmailPanel();
+}
+
+function removeReportRecipient(i) {
+  syncReportEmailFields();
+  _reportEmail.recipients.splice(i, 1);
+  renderReportEmailPanel();
+}
+
+function insertReportToken(fieldId) {
+  const el = document.getElementById(fieldId);
+  if (!el) return;
+  const token = '{תאריך}';
+  const start = el.selectionStart ?? el.value.length;
+  el.value = el.value.slice(0, start) + token + el.value.slice(el.selectionEnd ?? start);
+  el.focus();
+  syncReportEmailFields();
+}
+
+async function saveReportEmail() {
+  syncReportEmailFields();
+  const status = document.getElementById('report-email-status');
+  const res = await api('PUT', '/api/report/email/settings', {
+    recipients: _reportEmail.recipients,
+    subject: _reportEmail.subject,
+    body: _reportEmail.body,
+  });
+  if (res?.ok && status) { status.textContent = '✅ נשמר'; status.style.color = 'var(--success)'; }
 }
 
 function connectReportGmail() {
@@ -3622,16 +3716,21 @@ async function testReportEmail() {
 }
 
 async function sendReportEmail() {
-  const to = document.getElementById('report-email-to')?.value.trim();
+  syncReportEmailFields();
   const status = document.getElementById('report-email-status');
   const btn = document.getElementById('report-email-send');
   const set = (msg, color='var(--muted)') => { if (status) { status.textContent = msg; status.style.color = color; } };
-  if (!to || !to.includes('@')) { set('כתובת מייל לא תקינה', 'var(--red)'); return; }
+  if (!_reportEmail.recipients.length) { set('יש להוסיף לפחות נמען אחד', 'var(--red)'); return; }
   if (btn) btn.disabled = true;
   set('⏳ שולח...');
   try {
-    const res = await api('POST', '/api/report/email/send', { to, month: S.reportMonth || undefined });
-    if (res?.ok) { set(`✅ נשלח אל ${res.to}`, 'var(--success)'); toast('הדוח נשלח במייל', 'success'); }
+    const res = await api('POST', '/api/report/email/send', {
+      recipients: _reportEmail.recipients,
+      subject: _reportEmail.subject,
+      body: _reportEmail.body,
+      month: S.reportMonth || undefined,
+    });
+    if (res?.ok) { set(`✅ נשלח אל ${res.to.length} נמענים`, 'var(--success)'); toast('הדוח נשלח במייל', 'success'); }
   } catch(e) {
     set(`❌ ${e.message}`, 'var(--red)');
   } finally {

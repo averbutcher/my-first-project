@@ -2644,21 +2644,66 @@ async def export_report_pdf(u: str = Depends(auth), month: str = Query(None)):
 def _report_email_path(u: str) -> Path:
     return _udir(u) / "report_email.json"
 
+# {תאריך} in the subject/body is replaced at send time with the last date in the report
+DATE_TOKEN = "{תאריך}"
+_DEFAULT_REPORT_SUBJECT = "דוח מכירות — לייף סטייל " + DATE_TOKEN
+_DEFAULT_REPORT_BODY = (
+    "שלום,\n"
+    "מצורף דוח המכירות המלא (PDF ו-Excel) נכון לתאריך " + DATE_TOKEN + ".\n\n"
+    "Electra Target Tools"
+)
+
 def _load_report_email(u: str) -> dict:
-    return _rj(_report_email_path(u), {"recipient": ""})
+    d = _rj(_report_email_path(u), {})
+    # Migrate the old single-recipient shape
+    recipients = d.get("recipients")
+    if recipients is None:
+        one = (d.get("recipient") or "").strip()
+        recipients = [one] if one else []
+    return {
+        "recipients": [r for r in recipients if r],
+        "subject": d.get("subject") if d.get("subject") is not None else _DEFAULT_REPORT_SUBJECT,
+        "body":    d.get("body")    if d.get("body")    is not None else _DEFAULT_REPORT_BODY,
+    }
+
+def _save_report_email(u: str, cfg: dict):
+    _wj(_report_email_path(u), cfg)
+
+def _report_last_date(u: str, month: str = None) -> str:
+    """Latest data date (DD/MM/YYYY) in the report — the month's last date, or
+    the newest date overall when no month is given."""
+    all_dates = [str(s.get("date", "")) for s in (_load_saved_shifts(u) + _load_sales(u)) if s.get("date")]
+    all_dates = [d for d in all_dates if _d_to_iso(d)]
+    if not all_dates:
+        return ""
+    if not month:
+        month = max(_date_to_ym(d) for d in all_dates if _date_to_ym(d))
+    dates = [d for d in all_dates if _date_to_ym(d) == month]
+    return max(dates, key=_d_to_iso) if dates else ""
 
 @app.get("/api/report/email/settings")
-async def report_email_settings(u: str = Depends(auth)):
+async def report_email_settings(u: str = Depends(auth), month: str = Query(None)):
+    cfg = _load_report_email(u)
     tok = _get_valid_gmail_tokens(REPORT_SENDER_KEY)
     return {
-        "recipient": _load_report_email(u).get("recipient", ""),
+        **cfg,
         "configured": bool(tok),
         "sender": _report_sender_email(),
+        "date_token": DATE_TOKEN,
+        "last_date": _report_last_date(u, month),
     }
 
 @app.put("/api/report/email/settings")
 async def save_report_email_settings(body: dict, u: str = Depends(auth)):
-    _wj(_report_email_path(u), {"recipient": (body.get("recipient") or "").strip()})
+    recips = body.get("recipients")
+    if recips is None and body.get("recipient") is not None:  # tolerate single
+        recips = [body.get("recipient")]
+    cfg = {
+        "recipients": [r.strip() for r in (recips or []) if r and r.strip()],
+        "subject": (body.get("subject") if body.get("subject") is not None else _DEFAULT_REPORT_SUBJECT),
+        "body":    (body.get("body")    if body.get("body")    is not None else _DEFAULT_REPORT_BODY),
+    }
+    _save_report_email(u, cfg)
     return {"ok": True}
 
 @app.post("/api/report/email/test")
@@ -2688,28 +2733,38 @@ async def send_report_email(body: dict, u: str = Depends(auth)):
         raise HTTPException(400, "חשבון Gmail לשליחה אינו מחובר")
     sender = _report_sender_email() or "me"
 
-    recipient = (body.get("to") or "").strip() or _load_report_email(u).get("recipient", "").strip()
-    if not recipient:
-        raise HTTPException(400, "לא הוזן נמען")
-    if "@" not in recipient:
-        raise HTTPException(400, "כתובת מייל לא תקינה")
+    cfg = _load_report_email(u)
+    # Body may pass overrides (recipients/subject/body); fall back to saved config
+    recipients = body.get("recipients")
+    if recipients is None:
+        recipients = cfg["recipients"]
+    recipients = [r.strip() for r in recipients if r and r.strip()]
+    if not recipients:
+        raise HTTPException(400, "לא הוזנו נמענים")
+    bad = [r for r in recipients if "@" not in r]
+    if bad:
+        raise HTTPException(400, f"כתובת מייל לא תקינה: {bad[0]}")
 
     month = body.get("month")
     report_month, xlsx = _build_report_xlsx(u, month)
     _rm, pdf = _build_report_pdf(u, month)
 
-    month_disp = "/".join(report_month.split("-")[::-1]) if report_month else ""
-    subject = f"דוח מכירות — לייף סטייל {month_disp}".strip()
+    last_date = _report_last_date(u, month)
+    subj_tmpl = body.get("subject") if body.get("subject") is not None else cfg["subject"]
+    body_tmpl = body.get("body")    if body.get("body")    is not None else cfg["body"]
+    subject   = (subj_tmpl or "").replace(DATE_TOKEN, last_date)
+    body_text = (body_tmpl or "").replace(DATE_TOKEN, last_date)
+
+    import html as _html
+    body_html = _html.escape(body_text).replace("\n", "<br>")
     html = f"""<html><body style="background:#f5f5f5;padding:20px">
-      <div style="font-family:Arial,sans-serif;direction:rtl;text-align:right;color:#1a1a2e">
-        <h2 style="margin:0 0 8px">דוח מכירות — לייף סטייל</h2>
-        <p style="color:#555">מצורף דוח המכירות המלא{f' לחודש {month_disp}' if month_disp else ''} — קובץ PDF וקובץ Excel.</p>
-        <p style="font-size:12px;color:#999;margin-top:24px">Electra Target Tools</p>
+      <div style="font-family:Arial,sans-serif;direction:rtl;text-align:right;color:#1a1a2e;font-size:14px;line-height:1.6">
+        {body_html}
       </div>
     </body></html>"""
 
     fbase = f"sales_report_{report_month or 'all'}"
-    msg = build_email_message(sender, recipient, subject, html, [
+    msg = build_email_message(sender, recipients, subject, html, [
         (f"{fbase}.pdf",  pdf,  "pdf"),
         (f"{fbase}.xlsx", xlsx, "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     ])
@@ -2730,8 +2785,13 @@ async def send_report_email(body: dict, u: str = Depends(auth)):
         else:
             raise HTTPException(502, f"שליחת המייל נכשלה: {e}")
 
-    _wj(_report_email_path(u), {"recipient": recipient})
-    return {"ok": True, "to": recipient, "month": report_month}
+    # Persist whatever was used (so "set once" sticks), keeping edits
+    _save_report_email(u, {
+        "recipients": recipients,
+        "subject": subj_tmpl if subj_tmpl is not None else cfg["subject"],
+        "body":    body_tmpl if body_tmpl is not None else cfg["body"],
+    })
+    return {"ok": True, "to": recipients, "month": report_month}
 
 
 # ── Holidays ──────────────────────────────────────────────────────────────────
