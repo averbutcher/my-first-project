@@ -2637,10 +2637,9 @@ async def export_report_pdf(u: str = Depends(auth), month: str = Query(None)):
     )
 
 
-# ── Report email (sales report as PDF + Excel via Gmail SMTP) ──────────────────
-# Sender credentials come from Railway env vars (never stored in the repo):
-#   REPORT_EMAIL_USER          — the sending Gmail address
-#   REPORT_EMAIL_APP_PASSWORD  — a Google App Password for that account
+# ── Report email (sales report as PDF + Excel via the Gmail HTTPS API) ─────────
+# Railway blocks outbound SMTP, so sending goes through the Gmail API from one
+# fixed sender account connected once via OAuth (see /auth/report-gmail/connect).
 
 def _report_email_path(u: str) -> Path:
     return _udir(u) / "report_email.json"
@@ -2650,10 +2649,11 @@ def _load_report_email(u: str) -> dict:
 
 @app.get("/api/report/email/settings")
 async def report_email_settings(u: str = Depends(auth)):
+    tok = _get_valid_gmail_tokens(REPORT_SENDER_KEY)
     return {
         "recipient": _load_report_email(u).get("recipient", ""),
-        "configured": bool(os.environ.get("REPORT_EMAIL_USER") and os.environ.get("REPORT_EMAIL_APP_PASSWORD")),
-        "sender": os.environ.get("REPORT_EMAIL_USER", ""),
+        "configured": bool(tok),
+        "sender": _report_sender_email(),
     }
 
 @app.put("/api/report/email/settings")
@@ -2663,26 +2663,30 @@ async def save_report_email_settings(body: dict, u: str = Depends(auth)):
 
 @app.post("/api/report/email/test")
 async def test_report_email(u: str = Depends(auth)):
-    """Verify the Gmail login works, without sending anything."""
-    from emailer import verify_gmail_login
-    sender = os.environ.get("REPORT_EMAIL_USER", "").strip()
-    app_pw = os.environ.get("REPORT_EMAIL_APP_PASSWORD", "").strip()
-    if not sender or not app_pw:
-        raise HTTPException(400, "חשבון המייל לשליחה אינו מוגדר בשרת (REPORT_EMAIL_USER / REPORT_EMAIL_APP_PASSWORD)")
+    """Confirm the connected sender account still works, without sending."""
+    tok = _get_valid_gmail_tokens(REPORT_SENDER_KEY)
+    if not tok:
+        raise HTTPException(400, "חשבון Gmail לשליחה אינו מחובר")
+    import urllib.request, json as _json
     try:
-        verify_gmail_login(sender, app_pw)
+        req = urllib.request.Request(
+            "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+            headers={"Authorization": f"Bearer {tok['access_token']}"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            email = _json.loads(r.read()).get("emailAddress", "")
     except Exception as e:
-        raise HTTPException(502, f"התחברות ל-Gmail נכשלה: {e}")
-    return {"ok": True, "sender": sender}
+        raise HTTPException(502, f"בדיקת החיבור נכשלה: {e}")
+    return {"ok": True, "sender": email or _report_sender_email()}
 
 @app.post("/api/report/email/send")
 async def send_report_email(body: dict, u: str = Depends(auth)):
-    from emailer import send_gmail
+    import base64
+    from emailer import build_email_message
 
-    sender   = os.environ.get("REPORT_EMAIL_USER", "").strip()
-    app_pw   = os.environ.get("REPORT_EMAIL_APP_PASSWORD", "").strip()
-    if not sender or not app_pw:
-        raise HTTPException(400, "חשבון המייל לשליחה אינו מוגדר בשרת (REPORT_EMAIL_USER / REPORT_EMAIL_APP_PASSWORD)")
+    tok = _get_valid_gmail_tokens(REPORT_SENDER_KEY)
+    if not tok:
+        raise HTTPException(400, "חשבון Gmail לשליחה אינו מחובר")
+    sender = _report_sender_email() or "me"
 
     recipient = (body.get("to") or "").strip() or _load_report_email(u).get("recipient", "").strip()
     if not recipient:
@@ -2705,16 +2709,27 @@ async def send_report_email(body: dict, u: str = Depends(auth)):
     </body></html>"""
 
     fbase = f"sales_report_{report_month or 'all'}"
-    attachments = [
+    msg = build_email_message(sender, recipient, subject, html, [
         (f"{fbase}.pdf",  pdf,  "pdf"),
         (f"{fbase}.xlsx", xlsx, "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-    ]
+    ])
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     try:
-        send_gmail(sender, app_pw, recipient, subject, html, attachments)
+        _gmail_api_send(tok["access_token"], raw)
     except Exception as e:
-        raise HTTPException(502, f"שליחת המייל נכשלה: {e}")
+        # An expired access token surfaces as 401 — refresh once and retry
+        import urllib.error
+        if isinstance(e, urllib.error.HTTPError) and e.code == 401:
+            refreshed = _refresh_gmail_tokens(REPORT_SENDER_KEY, tok)
+            if not refreshed:
+                raise HTTPException(400, "חיבור ה-Gmail פג, יש להתחבר מחדש")
+            try:
+                _gmail_api_send(refreshed["access_token"], raw)
+            except Exception as e2:
+                raise HTTPException(502, f"שליחת המייל נכשלה: {e2}")
+        else:
+            raise HTTPException(502, f"שליחת המייל נכשלה: {e}")
 
-    # Remember the recipient as the new default
     _wj(_report_email_path(u), {"recipient": recipient})
     return {"ok": True, "to": recipient, "month": report_month}
 
@@ -3721,6 +3736,10 @@ GMAIL_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID", "")
 GMAIL_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GMAIL_REDIRECT_URI  = "https://tender-scanner.up.railway.app/auth/gmail/callback"
 GMAIL_SCOPES        = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_SEND_SCOPE    = "https://www.googleapis.com/auth/gmail.send"
+# Railway blocks outbound SMTP, so report emails go out via the Gmail HTTPS API
+# from one fixed sender account, connected once via OAuth and stored under this key.
+REPORT_SENDER_KEY   = "__report_sender__"
 _GMAIL_TOKENS_FILE = BASE_DIR / "data" / "shared" / "gmail_tokens.json"
 
 def _load_gmail_tokens() -> dict:
@@ -3808,9 +3827,57 @@ async def gmail_callback(code: str, state: str):
         headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
     with urllib.request.urlopen(req) as resp:
         tokens = _json.loads(resp.read())
+
+    # For the report-sender connection, remember which address was connected
+    signal = "gmail_connected"
+    if state == REPORT_SENDER_KEY:
+        signal = "report_gmail_connected"
+        try:
+            preq = urllib.request.Request(
+                "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+                headers={"Authorization": f"Bearer {tokens.get('access_token','')}"})
+            with urllib.request.urlopen(preq) as pr:
+                tokens["email"] = _json.loads(pr.read()).get("emailAddress", "")
+        except Exception:
+            pass
+
     _save_gmail_token(state, tokens)
     from fastapi.responses import HTMLResponse
-    return HTMLResponse("<script>window.close();window.opener&&window.opener.postMessage('gmail_connected','*')</script>✅ Gmail מחובר! ניתן לסגור חלון זה.")
+    return HTMLResponse(f"<script>window.close();window.opener&&window.opener.postMessage('{signal}','*')</script>✅ Gmail מחובר! ניתן לסגור חלון זה.")
+
+@app.get("/auth/report-gmail/connect")
+async def report_gmail_connect(u: str = Depends(auth)):
+    import urllib.parse
+    params = urllib.parse.urlencode({
+        "client_id": GMAIL_CLIENT_ID,
+        "redirect_uri": GMAIL_REDIRECT_URI,
+        "response_type": "code",
+        "scope": GMAIL_SEND_SCOPE,
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": REPORT_SENDER_KEY,
+    })
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+@app.post("/auth/report-gmail/disconnect")
+async def report_gmail_disconnect(u: str = Depends(auth)):
+    _clear_gmail_token(REPORT_SENDER_KEY)
+    return {"ok": True}
+
+def _report_sender_email() -> str:
+    return (_load_gmail_tokens().get(REPORT_SENDER_KEY, {}) or {}).get("email", "")
+
+def _gmail_api_send(access_token: str, raw_b64: str) -> dict:
+    """POST a base64url-encoded RFC822 message to the Gmail send API."""
+    import urllib.request, json as _json
+    req = urllib.request.Request(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        data=_json.dumps({"raw": raw_b64}).encode(),
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+        method="POST")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return _json.loads(r.read())
 
 @app.get("/auth/gmail/status")
 async def gmail_status(u: str = Depends(auth)):

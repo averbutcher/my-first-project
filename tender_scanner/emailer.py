@@ -37,10 +37,9 @@ def _gmail_smtp(timeout: int = 20) -> "_SMTP_SSL_IPv4":
     return _SMTP_SSL_IPv4("smtp.gmail.com", 465, timeout=timeout)
 
 
-def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
-               attachments=None) -> None:
-    """Send an HTML email (with optional attachments) from a Gmail account via
-    SMTP + app password.
+def build_email_message(sender: str, to, subject: str, html: str, attachments=None):
+    """Build a MIME message (HTML + optional attachments). Shared by the SMTP
+    sender and the Gmail-API sender.
 
     attachments: list of (filename, bytes, mime_subtype) e.g.
         ("report.pdf", b"...", "pdf").
@@ -59,7 +58,16 @@ def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
         part = MIMEApplication(data, _subtype=subtype)
         part.add_header("Content-Disposition", "attachment", filename=fname)
         msg.attach(part)
+    return msg
 
+
+def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
+               attachments=None) -> None:
+    """Send an HTML email (with optional attachments) from a Gmail account via
+    SMTP + app password. NOTE: Railway blocks outbound SMTP — the report emails
+    use the Gmail HTTPS API instead (see server._gmail_api_send)."""
+    recipients = [to] if isinstance(to, str) else list(to)
+    msg = build_email_message(sender, recipients, subject, html, attachments)
     with _gmail_smtp() as server:
         server.login(sender, app_password)
         server.sendmail(sender, recipients, msg.as_string())

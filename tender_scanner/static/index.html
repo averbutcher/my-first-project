@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.10 · made by klod averbutcher</div>
+    <div class="login-ver">v2.11 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.10 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.11 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -3568,8 +3568,14 @@ async function toggleReportEmailPanel() {
   panel.innerHTML = `
     <div style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">📧 שליחת דוח מכירות במייל${monthDisp ? ` — ${esc(monthDisp)}` : ''}</div>
     ${cfg.configured
-      ? `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem">נשלח מהחשבון: ${esc(cfg.sender)} · מצורפים PDF + Excel</div>`
-      : `<div style="font-size:.8rem;color:var(--red);margin-bottom:.5rem">⚠️ חשבון השליחה אינו מוגדר בשרת. יש להגדיר REPORT_EMAIL_USER ו-REPORT_EMAIL_APP_PASSWORD ב-Railway.</div>`}
+      ? `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-bottom:.5rem">
+           <span>✅ מחובר: ${esc(cfg.sender||'')} · מצורפים PDF + Excel</span>
+           <button class="btn btn-outline btn-sm" style="font-size:.72rem" onclick="disconnectReportGmail()">נתק</button>
+         </div>`
+      : `<div style="font-size:.8rem;margin-bottom:.5rem">
+           <div style="color:var(--muted);margin-bottom:.4rem">כדי לשלוח, חבר את חשבון ה-Gmail השולח (שליחה דרך Gmail, לא SMTP).</div>
+           <button class="btn btn-primary btn-sm" onclick="connectReportGmail()">🔗 חבר Gmail לשליחה</button>
+         </div>`}
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
       <input id="report-email-to" type="email" placeholder="נמען (email)" value="${esc(cfg.recipient||'')}" dir="ltr"
         style="width:260px;padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text)">
@@ -3577,6 +3583,26 @@ async function toggleReportEmailPanel() {
       <button class="btn btn-outline btn-sm" id="report-email-test" ${cfg.configured?'':'disabled'} onclick="testReportEmail()">🔌 בדוק חיבור</button>
       <span id="report-email-status" style="font-size:.8rem"></span>
     </div>`;
+}
+
+function connectReportGmail() {
+  const w = window.open('/auth/report-gmail/connect', 'report_gmail_oauth', 'width=500,height=600');
+  window.addEventListener('message', async (e) => {
+    if (e.data === 'report_gmail_connected') {
+      w?.close();
+      toast('חשבון Gmail חובר בהצלחה', 'success');
+      // re-open the panel fresh to reflect the connected state
+      const panel = document.getElementById('report-email-panel');
+      if (panel) { panel.style.display = 'none'; await toggleReportEmailPanel(); }
+    }
+  }, { once: true });
+}
+
+async function disconnectReportGmail() {
+  if (!confirm('לנתק את חשבון ה-Gmail השולח?')) return;
+  await api('POST', '/auth/report-gmail/disconnect', {});
+  const panel = document.getElementById('report-email-panel');
+  if (panel) { panel.style.display = 'none'; await toggleReportEmailPanel(); }
 }
 
 async function testReportEmail() {
