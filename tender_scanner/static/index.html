@@ -226,7 +226,7 @@ details.sb-exp summary::before{content:"▶ "}
       <button class="btn-login" type="submit">כניסה</button>
       <div id="login-err" class="login-err hidden"></div>
     </form>
-    <div class="login-ver">v2.12 · made by klod averbutcher</div>
+    <div class="login-ver">v2.13 · made by klod averbutcher</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ details.sb-exp summary::before{content:"▶ "}
     <div class="sb-bottom">
       <div class="sb-user">שלום, <b id="sb-name">—</b></div>
       <button class="btn-logout" onclick="doLogout()">התנתק</button>
-      <div class="sb-ver">v2.12 · made by klod averbutcher</div>
+      <div class="sb-ver">v2.13 · made by klod averbutcher</div>
     </div>
   </nav>
 
@@ -2151,7 +2151,7 @@ function renderShiftsApp() {
     <div id="gmail-bar" style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;padding:.6rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
       <span style="font-size:.85rem;font-weight:600">📧 Gmail</span>
       <span id="gmail-status-text" style="font-size:.82rem;color:var(--muted)">לא מחובר</span>
-      <button class="btn btn-outline" style="font-size:.8rem;padding:.25rem .7rem" onclick="connectGmail()">🔗 התחבר ל-Gmail</button>
+      <button id="gmail-connect-btn" class="btn btn-outline" style="font-size:.8rem;padding:.25rem .7rem" onclick="connectGmail()">🔗 התחבר ל-Gmail</button>
       <input type="date" id="gmail-date" style="padding:.25rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--bg);color:var(--text);display:none">
       <button class="btn btn-primary" style="font-size:.8rem;padding:.25rem .7rem;display:none" id="fetch-gmail-btn" onclick="fetchFromGmail()">📥 משוך קובץ ממייל</button>
     </div>
@@ -2196,9 +2196,10 @@ async function checkGmailStatus() {
   const statusEl = document.getElementById('gmail-status-text');
   const dateEl = document.getElementById('gmail-date');
   const fetchBtn = document.getElementById('fetch-gmail-btn');
+  const connectBtn = document.getElementById('gmail-connect-btn');
   if (!statusEl || !dateEl || !fetchBtn) return;
   if (res?.connected) {
-    statusEl.textContent = '✅ מחובר';
+    statusEl.textContent = res.site_account ? `✅ מחובר (חשבון מערכת: ${res.site_account})` : '✅ מחובר';
     statusEl.style.color = 'var(--success)';
     dateEl.style.display = '';
     if (!dateEl.value) {
@@ -2208,11 +2209,14 @@ async function checkGmailStatus() {
       dateEl.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
     fetchBtn.style.display = '';
+    // With the shared site account connected, individual users don't connect their own
+    if (connectBtn) connectBtn.style.display = res.site_account ? 'none' : '';
   } else {
     statusEl.textContent = 'לא מחובר';
     statusEl.style.color = 'var(--muted)';
     dateEl.style.display = 'none';
     fetchBtn.style.display = 'none';
+    if (connectBtn) connectBtn.style.display = '';
   }
 }
 
@@ -3599,12 +3603,12 @@ function renderReportEmailPanel() {
     <div style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">📧 שליחת דוח מכירות במייל${monthDisp ? ` — ${esc(monthDisp)}` : ''}</div>
     ${c.configured
       ? `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-bottom:.7rem">
-           <span>✅ נשלח מ: ${esc(c.sender||'')} · מצורפים PDF + Excel</span>
+           <span>✅ חשבון המערכת: ${esc(c.sender||'')} · שליחת דוחות + קריאת clock2go · מצורפים PDF + Excel</span>
            <button class="btn btn-outline btn-sm" style="font-size:.72rem" onclick="disconnectReportGmail()">נתק</button>
          </div>`
       : `<div style="font-size:.8rem;margin-bottom:.7rem">
-           <div style="color:var(--muted);margin-bottom:.4rem">כדי לשלוח, חבר את חשבון ה-Gmail השולח (שליחה דרך Gmail).</div>
-           <button class="btn btn-primary btn-sm" onclick="connectReportGmail()">🔗 חבר Gmail לשליחה</button>
+           <div style="color:var(--muted);margin-bottom:.4rem">חבר את חשבון ה-Gmail של המערכת (etarget.tools). חשבון אחד לכל המשתמשים — שליחת דוחות וגם קריאת קבצי clock2go.</div>
+           <button class="btn btn-primary btn-sm" onclick="connectReportGmail()">🔗 חבר את חשבון המערכת</button>
          </div>`}
 
     <div style="font-size:.78rem;font-weight:600;margin-bottom:.3rem">נמענים</div>

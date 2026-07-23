@@ -3908,11 +3908,13 @@ async def gmail_callback(code: str, state: str):
 @app.get("/auth/report-gmail/connect")
 async def report_gmail_connect(u: str = Depends(auth)):
     import urllib.parse
+    # The site account does BOTH jobs: read the clock2go attendance mail and
+    # send the reports — so request read + send together.
     params = urllib.parse.urlencode({
         "client_id": GMAIL_CLIENT_ID,
         "redirect_uri": GMAIL_REDIRECT_URI,
         "response_type": "code",
-        "scope": GMAIL_SEND_SCOPE,
+        "scope": f"{GMAIL_SCOPES} {GMAIL_SEND_SCOPE}",
         "access_type": "offline",
         "prompt": "consent",
         "state": REPORT_SENDER_KEY,
@@ -3928,6 +3930,15 @@ async def report_gmail_disconnect(u: str = Depends(auth)):
 def _report_sender_email() -> str:
     return (_load_gmail_tokens().get(REPORT_SENDER_KEY, {}) or {}).get("email", "")
 
+def _gmail_account_for(u: str) -> Optional[str]:
+    """Which stored account to use for a Gmail read op: the shared site account
+    if connected, otherwise the per-user connection (legacy fallback)."""
+    if _get_valid_gmail_tokens(REPORT_SENDER_KEY):
+        return REPORT_SENDER_KEY
+    if _get_valid_gmail_tokens(u):
+        return u
+    return None
+
 def _gmail_api_send(access_token: str, raw_b64: str) -> dict:
     """POST a base64url-encoded RFC822 message to the Gmail send API."""
     import urllib.request, json as _json
@@ -3941,12 +3952,18 @@ def _gmail_api_send(access_token: str, raw_b64: str) -> dict:
 
 @app.get("/auth/gmail/status")
 async def gmail_status(u: str = Depends(auth)):
-    return {"connected": bool(_get_valid_gmail_tokens(u))}
+    # Connected if the shared site account is linked, or (legacy) this user is
+    acct = _gmail_account_for(u)
+    return {
+        "connected": bool(acct),
+        "site_account": _report_sender_email() if acct == REPORT_SENDER_KEY else "",
+    }
 
 @app.post("/api/shifts/fetch-from-gmail")
 async def fetch_shifts_from_gmail(body: dict = {}, u: str = Depends(auth)):
     import urllib.request, urllib.parse, urllib.error, json as _json, base64
-    tokens = _get_valid_gmail_tokens(u)
+    acct = _gmail_account_for(u)
+    tokens = _get_valid_gmail_tokens(acct) if acct else None
     if not tokens:
         raise HTTPException(400, "Gmail התנתק, יש להתחבר מחדש")
     access_token = tokens["access_token"]
@@ -3961,7 +3978,7 @@ async def fetch_shifts_from_gmail(body: dict = {}, u: str = Depends(auth)):
             if e.code != 401:
                 raise
             # Access token expired mid-flight — refresh once and retry
-            refreshed = _refresh_gmail_tokens(u, tokens)
+            refreshed = _refresh_gmail_tokens(acct, tokens)
             if not refreshed:
                 raise HTTPException(400, "Gmail התנתק, יש להתחבר מחדש")
             access_token = refreshed["access_token"]
