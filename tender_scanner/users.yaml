@@ -11,7 +11,6 @@ credentials:
         - recruiter_analysis
         - netiv_haor
     dorra:
-      email: DorRa@electra-target.co.il
       name: Dor Racket
       password: "$2b$12$SHy/YxUTNiu4hDzmm6hjEue5MCJIKggWGEoRt6ujVXtk/12lYFpau"
       role: admin
@@ -20,7 +19,6 @@ credentials:
         - shift_comparison
         - netiv_haor
     vadim:
-      email: vadim@electra-target.co.il
       name: Vadim
       password: "$2b$12$ZitJpCsC5b7JJ7ybEaelhepyjH21A8e/g12l9SCnNlW7C/Dfs8Z1."
       role: user
@@ -30,7 +28,6 @@ credentials:
         - recruiter_analysis
         - netiv_haor
     shirnuri:
-      email: shirnuri@electra-target.co.il
       name: Shir Nuri
       password: "$2b$12$1W85KieXhBh/m.cPDGF/SenVs.NqTyBajF1INzXqavK0LRS.RX/Ja"
       role: user
