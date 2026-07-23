@@ -1,11 +1,40 @@
 """Send daily digest email via Gmail SMTP."""
 
 import os
+import socket
 import smtplib
 from datetime import date
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+
+class _SMTP_SSL_IPv4(smtplib.SMTP_SSL):
+    """SMTP_SSL forced onto IPv4.
+
+    Some hosts (Railway among them) resolve smtp.gmail.com to an IPv6 address
+    but have no working IPv6 route, so the default connection dies with
+    '[Errno 101] Network is unreachable' before any login happens. Resolving
+    an A record and connecting over IPv4 avoids that.
+    """
+    def _get_socket(self, host, port, timeout):
+        ai = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+        af, socktype, proto, _canon, sa = ai[0]
+        sock = socket.socket(af, socktype, proto)
+        try:
+            if timeout is not None:
+                sock.settimeout(timeout)
+            if self.source_address:
+                sock.bind(self.source_address)
+            sock.connect(sa)
+        except Exception:
+            sock.close()
+            raise
+        return self.context.wrap_socket(sock, server_hostname=self._host)
+
+
+def _gmail_smtp(timeout: int = 20) -> "_SMTP_SSL_IPv4":
+    return _SMTP_SSL_IPv4("smtp.gmail.com", 465, timeout=timeout)
 
 
 def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
@@ -31,7 +60,7 @@ def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
         part.add_header("Content-Disposition", "attachment", filename=fname)
         msg.attach(part)
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+    with _gmail_smtp() as server:
         server.login(sender, app_password)
         server.sendmail(sender, recipients, msg.as_string())
 
@@ -39,7 +68,7 @@ def send_gmail(sender: str, app_password: str, to, subject: str, html: str,
 def verify_gmail_login(sender: str, app_password: str) -> None:
     """Log in to Gmail SMTP without sending anything — used to confirm the
     account + app password are valid. Raises on failure."""
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+    with _gmail_smtp(timeout=15) as server:
         server.login(sender, app_password)
 
 
